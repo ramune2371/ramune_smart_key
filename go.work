@@ -1,3 +1,6 @@
 go 1.19
 
-use ./smart_back
+use (
+	./linebot
+	./smart_back
+)
