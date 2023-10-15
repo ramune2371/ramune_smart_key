@@ -7,7 +7,7 @@ import (
 	"encoding/base64"
 	"io"
 	"linebot/props"
-  "ramune/modules/logger"
+  "linebot/logger"
 	"net/http"
 
 	"github.com/labstack/echo/v4"

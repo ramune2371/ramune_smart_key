@@ -5,7 +5,7 @@ import (
 	"linebot/middle"
 	"linebot/processer"
 	"linebot/props"
-  "ramune/modules/logger"
+  "linebot/logger"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
