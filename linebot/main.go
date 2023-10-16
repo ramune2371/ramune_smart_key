@@ -12,10 +12,6 @@ import (
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
 
-func koremo(){
-  fmt.Println("jikko sareru?")
-}
-
 func requestLog(next echo.HandlerFunc) echo.HandlerFunc {
   return func(c echo.Context) error {
     logger.Request(c.Request())
@@ -35,6 +31,7 @@ func main() {
   e.Use(middle.VerifyLineSignature)
   e.POST("/", func(c echo.Context) error {
     events, err := bot.ParseRequest(c.Request())
+    //_, err := bot.ParseRequest(c.Request())
     if err != nil {
       return c.NoContent(http.StatusBadRequest)
     }

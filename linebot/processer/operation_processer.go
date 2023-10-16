@@ -1,12 +1,18 @@
 package processer
 
 import (
+  "time"
+	"crypto/rand"
 	"fmt"
 	"linebot/dao"
-	"linebot/logger"
+	"linebot/entity"
+//	"linebot/logger"
+	"math/big"
 
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
+
+var isOperating bool = false
 
 // WebHook Eventsの中身を検証
 // 正常なeventのみ詰め直した配列と、無効なユーザからのEventの配列を返却
@@ -52,29 +58,11 @@ func verifyMessageText(text string) bool {
 // Userが有効かを検証
 func verifyUser(userId string) bool {
 
-  name,active := dao.GetUserActive(userId)
-  logger.Debug(fmt.Sprintf("Request User id = %s, name = %s",userId,name))
-  return active
-}
-
-// LINEからのリクエスト内容に応じて処理を実行
-func HandleEvent(text,replyToken string,bot *linebot.Client) error {
-  switch text {
-  case "open":
-    handleOpenOperation(bot)
-    reply("開けるよー",replyToken,bot)
-  case "close":
-    handleCloseOperation(bot)
-    reply("閉めたいの？",replyToken,bot)
-    return nil
-  case "check":
-    handleCheckOperation(bot)
-    reply("確認するね",replyToken,bot)
-    return nil
-  default:
-    return fmt.Errorf("Un Supported Operation:%s",text)
+  user := dao.GetUserByLineId(userId)
+  if user == nil {
+    return false
   }
-  return nil
+  return user.Active
 }
 
 func HandleEvents(bot *linebot.Client, events []*linebot.Event) error {
@@ -85,34 +73,85 @@ func HandleEvents(bot *linebot.Client, events []*linebot.Event) error {
   }
 
   // 後続処理
-  for i,e := range validEvents {
-    switch message := e.Message.(type){
-    case *linebot.TextMessage:
-      logger.Debug(fmt.Sprintf("%d,%s",i,message.Text))
-      HandleEvent(message.Text,e.ReplyToken,bot)
-      break
-    default:
-      // Text Message以外は無視
+  userOpMap,masterOperation := margeEvents(validEvents)
+  opRes,operating := handleMasterOperation(masterOperation)
+  for _,o := range userOpMap {
+    if(operating){
+      reply("操作中やて！！！！！",o.ReplyToken,bot)
       continue
     }
+    // Check要求なら結果をそのまま返す
+    if o.Operation == entity.Check {
+      replyCheckResult(o.ReplyToken,opRes,bot)
+    }else{
+      if o.Operation == entity.Open && opRes {
+        reply("→鍵開けたで",o.ReplyToken,bot)
+      }else if o.Operation == entity.Close && !opRes {
+        reply("→鍵閉めたで",o.ReplyToken,bot)
+      }else if opRes {
+        reply("！なんか知らんけど開いたわ！",o.ReplyToken,bot)
+      }else {
+        reply("！なんか知らんけど閉じたわ！",o.ReplyToken,bot)
+      }
+    } 
   }
+  
   return nil
 }
 
-func handleOpenOperation(bot *linebot.Client) error {
-  return nil
-}
-
-func handleCloseOperation(bot *linebot.Client) error {
-  return nil
-}
-
-func handleCheckOperation(bot *linebot.Client) (bool,error) {
-
-  return true,nil
+func replyCheckResult(replyToken string,result bool,bot *linebot.Client){
+  if result {
+    reply("＜＜鍵開いてるで＞＞",replyToken,bot)
+  }else{
+    reply("＞＞鍵閉じてるで＜＜",replyToken,bot)
+  }
 }
 
 func reply(resText,replyToken string,bot *linebot.Client) error {
   _,err := bot.ReplyMessage(replyToken,linebot.NewTextMessage(resText)).Do()
   return err
+}
+
+// ひとつのWebHookに含まれるEventをマージする
+// ユーザ単位のマージ結果と、全体のマージ結果を返却
+func margeEvents(events []*linebot.Event) (map[string]entity.Operation,entity.OperationType){
+  ret := map[string]entity.Operation{}
+  // defaultではCheckを詰めておく
+  lastOperation := entity.Check
+  for _,e := range events {
+    // validEventsでeventがTextMessageであること
+    // MessageTextがopen or close or checkであること
+    // は担保済み
+    op := entity.ConvertEventToOperatin(e)
+    
+    // 鍵の状態を変更する操作を優先するためCheck以外の場合は全体の操作を上書き
+    if(op.Operation != entity.Check){
+      lastOperation = op.Operation
+    }
+
+    // userの初操作または、操作がCheck以外ならユーザ操作を上書き
+    _,ok := ret[op.UserId]
+    if !ok || op.Operation != entity.Check{
+      ret[op.UserId] = *op
+    }
+  }
+  return ret,lastOperation
+}
+
+// true:open false:close
+func handleMasterOperation(operation entity.OperationType) (bool,bool) {
+
+  if isOperating {
+    return false,true
+  }
+
+  isOperating = true
+  time.Sleep(5 * time.Second)
+  isOperating = false
+
+  r,_ := rand.Int(rand.Reader,big.NewInt(2))
+  if r.Int64() == big.NewInt(0).Int64(){
+    return true,false
+  }
+  return false,false
 }
