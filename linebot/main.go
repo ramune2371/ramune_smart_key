@@ -16,6 +16,13 @@ func koremo(){
   fmt.Println("jikko sareru?")
 }
 
+func requestLog(next echo.HandlerFunc) echo.HandlerFunc {
+  return func(c echo.Context) error {
+    logger.Request(c.Request())
+    return next(c)
+  }
+}
+
 
 func main() {
   bot, err := linebot.New(props.ChannelSecret, props.ChannelToken)
@@ -24,25 +31,17 @@ func main() {
   }
   e := echo.New()
   e.HideBanner = true
-  //e.Use(middleware.Logger())
+  e.Use(requestLog)
   e.Use(middle.VerifyLineSignature)
   e.POST("/", func(c echo.Context) error {
     events, err := bot.ParseRequest(c.Request())
     if err != nil {
       return c.NoContent(http.StatusBadRequest)
     }
-    for i,e := range events{
-      switch message := e.Message.(type){
-      case *linebot.TextMessage:
-        logger.Debug(fmt.Sprintf("%d,%s",i,message.Text))
-        processer.HandleRequest(message.Text,e.ReplyToken,bot)
-        break
-      default:
-        continue
-      }
-      
-    }
+    processer.HandleEvents(bot,events)
+
     return c.String(http.StatusOK, "")
   })
   e.Logger.Fatal(e.Start(":1323"))
 }
+
