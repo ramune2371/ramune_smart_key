@@ -1,13 +1,10 @@
 package processer
 
 import (
-  "time"
-	"crypto/rand"
 	"fmt"
 	"linebot/dao"
 	"linebot/entity"
-//	"linebot/logger"
-	"math/big"
+	"linebot/transfer"
 
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
@@ -74,21 +71,21 @@ func HandleEvents(bot *linebot.Client, events []*linebot.Event) error {
 
   // 後続処理
   userOpMap,masterOperation := margeEvents(validEvents)
-  opRes,operating := handleMasterOperation(masterOperation)
+  result := handleMasterOperation(masterOperation)
   for _,o := range userOpMap {
-    if(operating){
-      reply("操作中やて！！！！！",o.ReplyToken,bot)
+    if result.OperationStatus == "another" {
+      reply("ーー操作中ーー",o.ReplyToken,bot)
       continue
     }
     // Check要求なら結果をそのまま返す
     if o.Operation == entity.Check {
-      replyCheckResult(o.ReplyToken,opRes,bot)
+      replyCheckResult(o.ReplyToken,result.KeyStatus,bot)
     }else{
-      if o.Operation == entity.Open && opRes {
+      if o.Operation == entity.Open && result.KeyStatus == "True" {
         reply("→鍵開けたで",o.ReplyToken,bot)
-      }else if o.Operation == entity.Close && !opRes {
+      }else if o.Operation == entity.Close && result.KeyStatus == "False" {
         reply("→鍵閉めたで",o.ReplyToken,bot)
-      }else if opRes {
+      }else if result.KeyStatus == "True" {
         reply("！なんか知らんけど開いたわ！",o.ReplyToken,bot)
       }else {
         reply("！なんか知らんけど閉じたわ！",o.ReplyToken,bot)
@@ -99,8 +96,8 @@ func HandleEvents(bot *linebot.Client, events []*linebot.Event) error {
   return nil
 }
 
-func replyCheckResult(replyToken string,result bool,bot *linebot.Client){
-  if result {
+func replyCheckResult(replyToken string,result string,bot *linebot.Client){
+  if result == "True" {
     reply("＜＜鍵開いてるで＞＞",replyToken,bot)
   }else{
     reply("＞＞鍵閉じてるで＜＜",replyToken,bot)
@@ -139,19 +136,27 @@ func margeEvents(events []*linebot.Event) (map[string]entity.Operation,entity.Op
 }
 
 // true:open false:close
-func handleMasterOperation(operation entity.OperationType) (bool,bool) {
+func handleMasterOperation(operation entity.OperationType) entity.KeyServerResponse {
 
+  var ret entity.KeyServerResponse
   if isOperating {
-    return false,true
+    ret = entity.KeyServerResponse{KeyStatus:"unknown",OperationStatus:"another"}
+    return ret
   }
 
   isOperating = true
-  time.Sleep(5 * time.Second)
-  isOperating = false
-
-  r,_ := rand.Int(rand.Reader,big.NewInt(2))
-  if r.Int64() == big.NewInt(0).Int64(){
-    return true,false
+  switch (operation){
+  case entity.Open:
+    ret = transfer.Open()
+    break
+  case entity.Close:
+    ret = transfer.Close()
+    break
+  case entity.Check:
+    ret = transfer.Check()
+    break
+  default:
   }
-  return false,false
+  isOperating = false
+  return ret
 }
