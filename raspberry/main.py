@@ -1,4 +1,3 @@
-
 import machine
 import utime
 import time
@@ -90,13 +89,61 @@ def init_servo():
 def button_operator():
     if button.value() == 1:
         print("operate")
+        if operateFlag:
+            return
         
+        if openFlag:
+            close_key()
+        else:
+            open_key()
 ##### end Servo & Button Operator
 
 
 
 ##### start Server Block
 # Listen for connections, serve client
+def server_operator(s):
+    try:
+        print('socket ready!')
+        cl, addr = s.accept()
+        
+        print('client connected from', addr)
+        print('handle Request')
+        request = cl.recv(1024)
+        print("request:")
+        request = str(request)
+        print(request)
+
+        opStatus = "unknown"
+        keyStatus = "False"
+        
+        if '/open' in request:
+            print('open request')
+            opStatus,keyStatus = open_key()
+        elif '/close' in request:
+            print('close request')
+            opStatus,keyStatus = close_key()
+        elif '/check' in request:
+            print('check request')
+            if operateFlag :
+                opStatus = "another"
+            else :
+                opStatus = "already"
+            keyStatus = openFlag
+
+        else:
+            print('!!!!! Unknown Request !!!!!')
+        
+        body = '{"keyStatus":"'+str(keyStatus)+'","opStatus":"'+opStatus+'"}'
+
+        response = 'HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n'+body
+        cl.send(bytes(response,'UTF-8'))
+        cl.close()
+        
+        
+    except OSError as e:
+        pass
+
 def main() :
     #自宅Wi-FiのSSIDとパスワードを入力
     ssid = 'BarleyTea'
@@ -138,46 +185,8 @@ def main() :
     #_thread.start_new_thread(button_operator,())
     init_servo()
     while True:
-        try:
-            print('socket ready!')
-            cl, addr = s.accept()
-            
-            print('client connected from', addr)
-            print('handle Request')
-            request = cl.recv(1024)
-            print("request:")
-            request = str(request)
-            print(request)
-
-            opStatus = "unknown"
-            keyStatus = "False"
-            
-            if '/open' in request:
-                print('open request')
-                opStatus,keyStatus = open_key()
-            elif '/close' in request:
-                print('close request')
-                opStatus,keyStatus = close_key()
-            elif '/check' in request:
-                print('check request')
-                if operateFlag :
-                    opStatus = "another"
-                else :
-                    opStatus = "already"
-                keyStatus = openFlag
-
-            else:
-                print('!!!!! Unknown Request !!!!!')
-            
-            body = '{"keyStatus":"'+str(keyStatus)+'","opStatus":"'+opStatus+'"}'
-
-            response = 'HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n'+body
-            cl.send(bytes(response,'UTF-8'))
-            cl.close()
-            
-            
-        except OSError as e:
-            cl.close()
-            pass
+        server_operator(s)
+        button_operator()
 
 main()
+
