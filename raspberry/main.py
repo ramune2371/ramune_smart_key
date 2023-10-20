@@ -9,7 +9,6 @@ from machine import Pin
 
 ##### Pin Definition
 servo = machine.PWM(machine.Pin(15))
-servo.freq(50)
 button = machine.Pin(14,machine.Pin.IN)
 led = Pin("LED", machine.Pin.OUT)
 
@@ -27,6 +26,7 @@ def interval_mapping(x, in_min, in_max, out_min, out_max):
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
 
 def servo_write(pin, angle):
+    pin.freq(50)
     pulse_width = interval_mapping(angle, 0, 180, 0.5, 2.5)
     duty = int(interval_mapping(pulse_width, 0, 20, 0, 65535))
     pin.duty_u16(duty)
@@ -49,6 +49,7 @@ def close_key():
     openFlag=False
     led.value(0)
     utime.sleep(3)
+    servo.deinit()
     operateFlag = False
     return "complete",False
     
@@ -70,6 +71,7 @@ def open_key():
     openFlag = True
     led.value(1)
     utime.sleep(3)
+    servo.deinit()
     operateFlag = False
     return "complete",True
 
@@ -84,6 +86,7 @@ def init_servo():
     servo_write(servo,open)
     led.value(1)
     utime.sleep_ms(3000)
+    servo.deinit()
     operateFlag = False
 
 def button_operator():
