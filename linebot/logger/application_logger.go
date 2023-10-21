@@ -3,6 +3,7 @@ package logger
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -22,7 +23,9 @@ var (
 	// WebHook署名検証成功
 	LBIF010002 = applicationLog{Id: "LBIF010002", MsgFormat: "WebHookの署名の検証に成功しました"}
 	// 鍵サーバへの接続{path}
-	LBIF040001 = applicationLog{Id: "LBIF040001", MsgFormat: "鍵サーバに接続します、%path"}
+	LBIF040001 = applicationLog{Id: "LBIF040001", MsgFormat: "鍵サーバに接続します、%s"}
+	// 鍵サーバからレスポンス受信(response)
+	LBIF040002 = applicationLog{Id: "LBIF040002", MsgFormat: "鍵サーバからレスポンスを受信しました。%s"}
 	// WebHook署名検証エラー
 	LBWR010001 = applicationLog{Id: "LBWR010001", MsgFormat: "WebHookの署名の検証中にエラーが発生しました。"}
 	// WebHook署名検証失敗
@@ -36,7 +39,7 @@ var (
 	// 鍵サーバレスポンス読み込み失敗
 	LBFT040002 = applicationLog{Id: "LBFT040002", MsgFormat: "鍵サーバのレスポンス読み込みに失敗しました。"}
 	// 鍵サーバレスポンス形式不正{response}
-	LBFT040003 = applicationLog{Id: "LBFT040003", MsgFormat: "鍵サーバのレスポンス形式が不正です。%response"}
+	LBFT040003 = applicationLog{Id: "LBFT040003", MsgFormat: "鍵サーバのレスポンス形式が不正です。%s"}
 )
 
 func (v *applicationLog) GetId() string {
@@ -69,31 +72,31 @@ func Debug(message string) {
 	log.Debug().Str("type", "DebugLogger").Msg(message)
 }
 
-func Info(l *applicationLog, values ...any) {
-	log.Info().Str("type", "ApplicationLogger").Str("id", l.Id).Msgf(l.GetMsgFormat(), values)
+func Info(l *applicationLog, values ...interface{}) {
+	log.Info().Str("type", "ApplicationLogger").Str("id", l.Id).Msg(fmt.Sprintf(l.GetMsgFormat(), values...))
 }
 
-func Warn(l *applicationLog, values ...any) {
-	log.Warn().Str("type", "ApplicationLogger").Str("id", l.Id).Msgf(l.GetMsgFormat(), values)
+func Warn(l *applicationLog, values ...interface{}) {
+	log.Warn().Str("type", "ApplicationLogger").Str("id", l.Id).Msg(fmt.Sprintf(l.GetMsgFormat(), values...))
 }
 
-func WarnWithStackTrace(err error, l *applicationLog, values ...any) {
-	log.Warn().Err(err).Str("type", "ApplicationLogger").Str("id", l.Id).Msgf(l.GetMsgFormat(), values)
+func WarnWithStackTrace(err error, l *applicationLog, values ...interface{}) {
+	log.Warn().Err(err).Str("type", "ApplicationLogger").Str("id", l.Id).Msg(fmt.Sprintf(l.GetMsgFormat(), values...))
 }
 
-func Error(l *applicationLog, values ...any) {
-	log.Error().Str("type", "ApplicationLogger").Str("id", l.Id).Msgf(l.GetMsgFormat(), values)
+func Error(l *applicationLog, values ...interface{}) {
+	log.Error().Str("type", "ApplicationLogger").Str("id", l.Id).Msg(fmt.Sprintf(l.GetMsgFormat(), values...))
 }
 
-func ErrorWithStackTrace(err error, l *applicationLog, values ...any) {
-	log.Error().Err(err).Str("type", "ApplicationLogger").Str("id", l.Id).Msgf(l.GetMsgFormat(), values)
+func ErrorWithStackTrace(err error, l *applicationLog, values ...interface{}) {
+	log.Error().Err(err).Str("type", "ApplicationLogger").Str("id", l.Id).Msg(fmt.Sprintf(l.GetMsgFormat(), values...))
 }
 
-func Fatal(l *applicationLog, values ...any) {
-	log.WithLevel(zerolog.FatalLevel).Str("type", "ApplicationLogger").Str("id", l.Id).Msgf(l.GetMsgFormat(), values)
+func Fatal(l *applicationLog, values ...interface{}) {
+	log.WithLevel(zerolog.FatalLevel).Str("type", "ApplicationLogger").Str("id", l.Id).Msg(fmt.Sprintf(l.GetMsgFormat(), values...))
 }
 
-func FatalWithStackTrace(err error, l *applicationLog, values ...any) {
+func FatalWithStackTrace(err error, l *applicationLog, values ...interface{}) {
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
-	log.WithLevel(zerolog.FatalLevel).Err(err).Str("type", "ApplicationLogger").Str("id", l.Id).Msgf(l.GetMsgFormat(), values)
+	log.WithLevel(zerolog.FatalLevel).Err(err).Str("type", "ApplicationLogger").Str("id", l.Id).Msg(fmt.Sprintf(l.GetMsgFormat(), values...))
 }

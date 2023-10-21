@@ -13,7 +13,7 @@ import (
 )
 
 func request(path string) (entity.KeyServerResponse, error) {
-	logger.Info(&logger.LBIF040001, &path)
+	logger.Info(&logger.LBIF040001, path)
 	c := http.Client{
 		Transport: &http.Transport{
 			TLSHandshakeTimeout:   2 * time.Second,
@@ -36,7 +36,7 @@ func request(path string) (entity.KeyServerResponse, error) {
 		return entity.KeyServerResponse{}, &applicationerror.ResponseParseError
 	}
 	res.Body.Close()
-
+	logger.Info(&logger.LBIF040002, string(bytesArray))
 	var ret entity.KeyServerResponse
 
 	err = json.Unmarshal(bytesArray, &ret)
