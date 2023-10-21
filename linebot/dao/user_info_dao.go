@@ -9,16 +9,16 @@ import (
 )
 
 func GetUserByLineId(lineId string) *entity.UserInfo {
-  dsn := "root:mysql@tcp(127.0.0.1:3306)/smart_key"
-  db,err := gorm.Open(mysql.Open(dsn))
+	dsn := "root:mysql@tcp(127.0.0.1:3306)/smart_key"
+	db, err := gorm.Open(mysql.Open(dsn))
 
-  if err != nil {
-    logger.Fatal("DBとの接続に失敗しました。","LBFT03001")
-    return nil
-  }
+	if err != nil {
+		logger.FatalWithStackTrace(err, &logger.LBFT030001)
+		return nil
+	}
 
-  var ret entity.UserInfo
+	var ret entity.UserInfo
 
-  db.Table("user_info").Where("line_id = ?",lineId).Find(&ret)
-  return &ret
+	db.Table("user_info").Where("line_id = ?", lineId).Find(&ret)
+	return &ret
 }

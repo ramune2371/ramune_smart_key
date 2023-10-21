@@ -3,54 +3,97 @@ package logger
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog/pkgerrors"
 )
 
-// TODO ログ設計
+type applicationLog struct {
+	Id        string
+	MsgFormat string
+}
+
+var (
+	// WebHook署名検証開始
+	LBIF010001 = applicationLog{Id: "LBIF010001", MsgFormat: "WebHookの署名を検証します"}
+	// WebHook署名検証成功
+	LBIF010002 = applicationLog{Id: "LBIF010002", MsgFormat: "WebHookの署名の検証に成功しました"}
+	// 鍵サーバへの接続{path}
+	LBIF040001 = applicationLog{Id: "LBIF040001", MsgFormat: "鍵サーバに接続します、%path"}
+	// WebHook署名検証エラー
+	LBWR010001 = applicationLog{Id: "LBWR010001", MsgFormat: "WebHookの署名の検証中にエラーが発生しました。"}
+	// WebHook署名検証失敗
+	LBWR010002 = applicationLog{Id: "LBWR010002", MsgFormat: "WebHookの署名の検証に失敗しました。"}
+	// Requestログ失敗
+	LBER010001 = applicationLog{Id: "LBER010001", MsgFormat: "Requestログに失敗しました"}
+	// DB接続失敗
+	LBFT030001 = applicationLog{Id: "LBFT030001", MsgFormat: "DBとの接続に失敗しました。"}
+	// 鍵サーバ接続失敗
+	LBFT040001 = applicationLog{Id: "LBFT040001", MsgFormat: "鍵サーバとの接続に失敗しました。"}
+	// 鍵サーバレスポンス読み込み失敗
+	LBFT040002 = applicationLog{Id: "LBFT040002", MsgFormat: "鍵サーバのレスポンス読み込みに失敗しました。"}
+	// 鍵サーバレスポンス形式不正{response}
+	LBFT040003 = applicationLog{Id: "LBFT040003", MsgFormat: "鍵サーバのレスポンス形式が不正です。%response"}
+)
+
+func (v *applicationLog) GetId() string {
+	return v.Id
+}
+
+func (v *applicationLog) GetMsgFormat() string {
+	return v.MsgFormat
+}
 
 func Request(req *http.Request) {
-  buf,err := io.ReadAll(req.Body)
-  if err != nil {
-    Fatal(fmt.Sprintf("Error at reading request Body err:%s",err.Error()),"FT999999")
-  }
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
 
-  log.Info().Str("type","RequestLogger").RawJSON("header",toJson(req.Header)).Msg(string(buf))
+		ErrorWithStackTrace(err, &LBER010001)
+	}
 
-  // 後続でRequestの内容を読むために詰め直し
-  req.Body = io.NopCloser(bytes.NewBuffer(buf))
+	j, err := json.Marshal(req.Header)
+	if err != nil {
+		ErrorWithStackTrace(err, &LBER010001)
+	}
+
+	log.Info().Str("type", "RequestLogger").RawJSON("header", j).Msg(string(buf))
+
+	// 後続でRequestの内容を読むために詰め直し
+	req.Body = io.NopCloser(bytes.NewBuffer(buf))
 }
 
 func Debug(message string) {
-  log.Debug().Str("type","DebugLogger").Msg(message)
+	log.Debug().Str("type", "DebugLogger").Msg(message)
 }
 
-func Info(message,id string) {
-  log.Info().Str("type","ApplicationLogger").Str("id",id).Msg(message)
+func Info(l *applicationLog, values ...any) {
+	log.Info().Str("type", "ApplicationLogger").Str("id", l.Id).Msgf(l.GetMsgFormat(), values)
 }
 
-func Warn(message,id string) {
-  log.Warn().Str("type","ApplicationLogger").Str("id",id).Msg(message)
+func Warn(l *applicationLog, values ...any) {
+	log.Warn().Str("type", "ApplicationLogger").Str("id", l.Id).Msgf(l.GetMsgFormat(), values)
 }
 
-func Error(message,id string) {
-  log.Error().Str("type","ApplicationLogger").Str("id",id).Msg(message)
+func WarnWithStackTrace(err error, l *applicationLog, values ...any) {
+	log.Warn().Err(err).Str("type", "ApplicationLogger").Str("id", l.Id).Msgf(l.GetMsgFormat(), values)
 }
 
-func Fatal(message,id string) {
-  log.Fatal().Str("type","ApplicationLogger").Str("id",id).Msg(message)
+func Error(l *applicationLog, values ...any) {
+	log.Error().Str("type", "ApplicationLogger").Str("id", l.Id).Msgf(l.GetMsgFormat(), values)
 }
 
-func toJson(target any) []byte{
-  ret,err := json.Marshal(target)
-  if err != nil {
-    Fatal(fmt.Sprintf("Error at Reading as Json err:%s",err.Error()),"FT999999")
-    return nil
-  }
-  return ret
+func ErrorWithStackTrace(err error, l *applicationLog, values ...any) {
+	log.Error().Err(err).Str("type", "ApplicationLogger").Str("id", l.Id).Msgf(l.GetMsgFormat(), values)
 }
 
+func Fatal(l *applicationLog, values ...any) {
+	log.WithLevel(zerolog.FatalLevel).Str("type", "ApplicationLogger").Str("id", l.Id).Msgf(l.GetMsgFormat(), values)
+}
 
+func FatalWithStackTrace(err error, l *applicationLog, values ...any) {
+	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
+	log.WithLevel(zerolog.FatalLevel).Err(err).Str("type", "ApplicationLogger").Str("id", l.Id).Msgf(l.GetMsgFormat(), values)
+}
