@@ -15,8 +15,8 @@ led = Pin("LED", machine.Pin.OUT)
 ##### Global Valiable Definition
 HOST='192.168.11.200'
 
-open = 0
-close = 180
+open = 180
+close = 0
 openFlag = True # True is Open
 operateFlag = False # True is in Operating
 
