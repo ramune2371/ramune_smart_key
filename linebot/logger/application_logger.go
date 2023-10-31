@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -69,7 +70,9 @@ func Request(req *http.Request) {
 }
 
 func Debug(message string) {
-	log.Debug().Str("type", "DebugLogger").Msg(message)
+	if os.Getenv("LOG_LEVEL") == "debug" {
+		log.Debug().Str("type", "DebugLogger").Msg(message)
+	}
 }
 
 func Info(l *applicationLog, values ...interface{}) {
