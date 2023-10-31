@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"linebot/applicationerror"
 	"linebot/entity"
+	"linebot/logger"
 	"linebot/transfer"
 
 	"github.com/line/line-bot-sdk-go/v7/linebot"
@@ -16,6 +17,11 @@ func HandleEvents(bot *linebot.Client, events []*linebot.Event) error {
 	// (b-3)返却処理
 	for _, e := range notActiveUserEvents {
 		reply(fmt.Sprintf("無効なユーザだよ。↓の文字列を管理者に送って。\n「%s」", e.Source.UserID), e.ReplyToken, bot)
+	}
+
+	if len(validEvents) == 0 {
+		logger.Debug("empty valid events")
+		return nil
 	}
 
 	// 後続処理

@@ -2,6 +2,7 @@ package processer
 
 import (
 	"linebot/dao"
+	"linebot/logger"
 
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
@@ -15,17 +16,20 @@ func validateEvent(events []*linebot.Event) ([]*linebot.Event, []*linebot.Event)
 	for _, e := range events {
 		//(b-1)検証
 		if !isTextMessage(e) {
+			logger.Debug("not Text Message")
 			continue
 		}
 
 		// 前段で型検証は済んでいるので型変換チェックはしない
 		// (b-2)検証
 		if !verifyMessageText(e.Message.(*linebot.TextMessage).Text) {
+			logger.Debug("not valid message")
 			continue
 		}
 
 		// (b-3)検証
 		if !verifyUser(e.Source.UserID) {
+			logger.Debug(("not valid user"))
 			notActiveUserEvent = append(notActiveUserEvent, e)
 			continue
 		}
@@ -37,14 +41,18 @@ func validateEvent(events []*linebot.Event) ([]*linebot.Event, []*linebot.Event)
 // LineBot EventがTextMessageかを検証
 func isTextMessage(e *linebot.Event) bool {
 
-	_, ok := e.Message.(*linebot.TextMessage)
-	return ok
+	tm, ok := e.Message.(*linebot.TextMessage)
+	if !ok {
+		return false
+	} else {
+		return tm.Text != ""
+	}
 }
 
 // TextMessageの中身が許可されたものかを検証
 func verifyMessageText(text string) bool {
 
-	return text == "open" || text == "close" || text == "check"
+	return text != "" && (text == "open" || text == "close" || text == "check")
 }
 
 // Userが有効かを検証
