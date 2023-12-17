@@ -16,6 +16,7 @@ func HandleEvents(bot *linebot.Client, events []*linebot.Event) error {
 	validEvents, notActiveUserEvents := validateEvent(events)
 	// (b-3)返却処理
 	for _, e := range notActiveUserEvents {
+		logger.Info(&logger.LBIF020001, e.Source.UserID)
 		reply(fmt.Sprintf("無効なユーザだよ。↓の文字列を管理者に送って。\n「%s」", e.Source.UserID), e.ReplyToken, bot)
 	}
 
@@ -81,7 +82,11 @@ func replyCheckResult(replyToken string, result string, bot *linebot.Client) {
 }
 
 func reply(resText, replyToken string, bot *linebot.Client) error {
+	logger.Info(&logger.LBIF050001, replyToken, resText)
 	_, err := bot.ReplyMessage(replyToken, linebot.NewTextMessage(resText)).Do()
+	if err != nil {
+		logger.WarnWithStackTrace(err, &logger.LBWR050001, replyToken, resText)
+	}
 	return err
 }
 
