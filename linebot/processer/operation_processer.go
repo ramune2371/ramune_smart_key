@@ -26,6 +26,12 @@ func HandleEvents(bot *linebot.Client, events []*linebot.Event) error {
 
 	// 後続処理
 	userOpMap, masterOperation := margeEvents(validEvents)
+
+	// 処理受付応答
+	for _, o := range userOpMap {
+		reply("ーーー処理中ーーー", o.ReplyToken, bot)
+	}
+
 	result, err := handleMasterOperation(masterOperation)
 
 	if err != nil {
@@ -44,7 +50,7 @@ func HandleEvents(bot *linebot.Client, events []*linebot.Event) error {
 
 	for _, o := range userOpMap {
 		if result.OperationStatus == "another" {
-			reply("ーー操作中ーー", o.ReplyToken, bot)
+			reply("＝＝＝他操作の処理中＝＝＝", o.ReplyToken, bot)
 			continue
 		}
 		// Check要求なら結果をそのまま返す
