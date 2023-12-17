@@ -23,14 +23,20 @@ var (
 	LBIF010001 = applicationLog{Id: "LBIF010001", MsgFormat: "WebHookの署名を検証します"}
 	// WebHook署名検証成功
 	LBIF010002 = applicationLog{Id: "LBIF010002", MsgFormat: "WebHookの署名の検証に成功しました"}
+	// 不正なユーザからのリクエスト受信
+	LBIF020001 = applicationLog{Id: "LBIF020001", MsgFormat: "不正なユーザからのリクエストです。userId:%s"}
 	// 鍵サーバへの接続{path}
 	LBIF040001 = applicationLog{Id: "LBIF040001", MsgFormat: "鍵サーバに接続します、%s"}
 	// 鍵サーバからレスポンス受信(response)
 	LBIF040002 = applicationLog{Id: "LBIF040002", MsgFormat: "鍵サーバからレスポンスを受信しました。%s"}
+	// Lineへの返信メッセージ応答(ReplyToken,Message)
+	LBIF050001 = applicationLog{Id: "LBIF050001", MsgFormat: "メッセージを応答します。ReplyToken:%s,Message:%s"}
 	// WebHook署名検証エラー
 	LBWR010001 = applicationLog{Id: "LBWR010001", MsgFormat: "WebHookの署名の検証中にエラーが発生しました。"}
 	// WebHook署名検証失敗
 	LBWR010002 = applicationLog{Id: "LBWR010002", MsgFormat: "WebHookの署名の検証に失敗しました。"}
+	// メッセージ応答時にエラーが発生しました。replyToken:%replytoken,message:%message
+	LBWR050001 = applicationLog{Id: "LBWR050001", MsgFormat: "メッセージ応答時にエラーが発生しました。replyToken:%s,message:%s"}
 	// Requestログ失敗
 	LBER010001 = applicationLog{Id: "LBER010001", MsgFormat: "Requestログに失敗しました"}
 	// DB接続失敗
