@@ -27,13 +27,16 @@ func validateEvent(events []*linebot.Event) ([]*linebot.Event, []*linebot.Event)
 			continue
 		}
 
+		lineId := e.Source.UserID
 		// (b-3)検証
-		if !verifyUser(e.Source.UserID) {
+		if !verifyUser(lineId) {
 			logger.Debug(("not valid user"))
 			notActiveUserEvent = append(notActiveUserEvent, e)
+			dao.UpsertInvalidUser(lineId)
 			continue
 		}
 		verifiedEvent = append(verifiedEvent, e)
+		dao.UpdateUserLastAccess(lineId)
 	}
 	return verifiedEvent, notActiveUserEvent
 }
