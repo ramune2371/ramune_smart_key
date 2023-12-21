@@ -68,7 +68,7 @@ func main() {
 	serverGroup.Add(1)
 	go func() {
 		if err := e.Start(fmt.Sprintf(":%s", SERVER_PORT)); err != nil {
-			e.Logger.Fatal(e)
+			e.Logger.Fatal(err)
 			serverGroup.Done()
 		}
 		serverGroup.Done()
