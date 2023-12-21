@@ -11,6 +11,9 @@ import (
 	"gorm.io/gorm"
 )
 
+/*
+LineのIDを元に、ユーザレコードを取得
+*/
 func GetUserByLineId(lineId string) *entity.UserInfo {
 	db, err := getConnection()
 
@@ -25,6 +28,10 @@ func GetUserByLineId(lineId string) *entity.UserInfo {
 	return &ret
 }
 
+/*
+LineのIDを元に、最終アクセス時間を更新
+UI-A-01
+*/
 func UpdateUserLastAccess(lineId string) bool {
 	db, err := getConnection()
 
@@ -37,6 +44,10 @@ func UpdateUserLastAccess(lineId string) bool {
 	return true
 }
 
+/*
+LineのIDを元に、不正なユーザレコードを作成 or 最終アクセス時間を更新
+UI-E-01
+*/
 func UpsertInvalidUser(lineId string) bool {
 	db, err := getConnection()
 
