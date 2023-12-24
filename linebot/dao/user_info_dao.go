@@ -2,64 +2,49 @@ package dao
 
 import (
 	"linebot/entity"
-	"linebot/logger"
-	"os"
 	"time"
 
 	"github.com/google/uuid"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
 )
 
 /*
 LineのIDを元に、ユーザレコードを取得
 */
-func GetUserByLineId(lineId string) *entity.UserInfo {
-	db, err := getConnection()
+func (g *GormDB) GetUserByLineId(lineId string) *entity.UserInfo {
+	var ret *entity.UserInfo
 
-	if err != nil {
-		logger.FatalWithStackTrace(err, &logger.LBFT030001)
-		return nil
-	}
-
-	var ret entity.UserInfo
-
-	db.Table("user_info").Where("line_id = ?", lineId).Find(&ret)
-	return &ret
+	g.getTable(entity.UserInfoTable).Where("line_id = ?", lineId).Find(&ret)
+	return ret
 }
 
 /*
 LineのIDを元に、最終アクセス時間を更新
 UI-A-01
 */
-func UpdateUserLastAccess(lineId string) bool {
-	db, err := getConnection()
+func (g *GormDB) UpdateUserLastAccess(lineId string) bool {
 
-	if err != nil {
-		logger.FatalWithStackTrace(err, &logger.LBFT030001)
+	table := g.getTable(entity.UserInfoTable).Where("line_id = ?", lineId).Update("last_access", time.Now())
+	if table == nil {
 		return false
+	} else {
+		return true
 	}
-
-	db.Table("user_info").Where("line_id = ?", lineId).Update("last_access", time.Now())
-	return true
 }
 
 /*
 LineのIDを元に、不正なユーザレコードを作成 or 最終アクセス時間を更新
 UI-E-01
 */
-func UpsertInvalidUser(lineId string) bool {
-	db, err := getConnection()
+func (g *GormDB) UpsertInvalidUser(lineId string) bool {
 
-	if err != nil {
-		logger.FatalWithStackTrace(err, &logger.LBFT030001)
+	tx := g.getTable(entity.UserInfoTable)
+
+	if tx == nil {
 		return false
 	}
 
-	tx := db.Table("user_info")
-
 	tx.Begin()
-	var ret entity.UserInfo
+	var ret *entity.UserInfo
 	tx.Where("line_id = ?", lineId).Find(&ret)
 	if ret.UserUuid == "" {
 		ret.UserUuid = uuid.New().String()
@@ -68,15 +53,7 @@ func UpsertInvalidUser(lineId string) bool {
 	if ret.UserName == "" {
 		ret.UserName = "Unknown"
 	}
-	ret.LastAccess = time.Now()
-	tx.Save(ret)
+	tx.Save(&ret)
 	tx.Commit()
 	return true
-}
-
-func getConnection() (*gorm.DB, error) {
-	database_host := os.Getenv("DATABASE_HOST")
-	dsn := "root:mysql@tcp(" + database_host + ":3306)/smart_key?parseTime=true"
-
-	return gorm.Open(mysql.Open(dsn))
 }

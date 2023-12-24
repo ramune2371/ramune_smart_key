@@ -9,7 +9,7 @@ import (
 
 // WebHook Eventsの中身を検証
 // 正常なeventのみ詰め直した配列と、無効なユーザからのEventの配列を返却
-func validateEvent(events []*linebot.Event) ([]*linebot.Event, []*linebot.Event) {
+func validateEvent(events []*linebot.Event, g *dao.GormDB) ([]*linebot.Event, []*linebot.Event) {
 
 	var verifiedEvent []*linebot.Event
 	var notActiveUserEvent []*linebot.Event
@@ -29,14 +29,14 @@ func validateEvent(events []*linebot.Event) ([]*linebot.Event, []*linebot.Event)
 
 		lineId := e.Source.UserID
 		// (b-3)検証
-		if !verifyUser(lineId) {
+		if !verifyUser(lineId, g) {
 			logger.Debug(("not valid user"))
 			notActiveUserEvent = append(notActiveUserEvent, e)
-			dao.UpsertInvalidUser(lineId)
+			g.UpsertInvalidUser(lineId)
 			continue
 		}
 		verifiedEvent = append(verifiedEvent, e)
-		dao.UpdateUserLastAccess(lineId)
+		g.UpdateUserLastAccess(lineId)
 	}
 	return verifiedEvent, notActiveUserEvent
 }
@@ -59,9 +59,9 @@ func verifyMessageText(text string) bool {
 }
 
 // Userが有効かを検証
-func verifyUser(userId string) bool {
+func verifyUser(userId string, g *dao.GormDB) bool {
 
-	user := dao.GetUserByLineId(userId)
+	user := g.GetUserByLineId(userId)
 	if user == nil {
 		return false
 	}
