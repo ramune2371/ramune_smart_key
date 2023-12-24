@@ -14,10 +14,7 @@ import (
 var isOperating bool = false
 
 func HandleEvents(bot *linebot.Client, events []*linebot.Event) error {
-	g := dao.InitDB()
-	sqlDB, _ := g.DB.DB()
-	defer sqlDB.Close()
-	validEvents, notActiveUserEvents := validateEvent(events, g)
+	validEvents, notActiveUserEvents := validateEvent(events)
 	// (b-3)返却処理
 	returnReplyToNotValidUsers(notActiveUserEvents, bot)
 
@@ -26,16 +23,16 @@ func HandleEvents(bot *linebot.Client, events []*linebot.Event) error {
 	}
 
 	// 後続処理
-	userOpMap, masterOperation := margeEvents(validEvents, g)
+	userOpMap, masterOperation := margeEvents(validEvents)
 
 	result, err := handleMasterOperation(masterOperation)
 
 	if err != nil {
-		handleErrorResponse(userOpMap, bot, err, g)
+		handleErrorResponse(userOpMap, bot, err)
 		return err
 	}
 
-	handleResponse(userOpMap, result, bot, g)
+	handleResponse(userOpMap, result, bot)
 
 	return nil
 }
@@ -59,7 +56,7 @@ func reply(resText, replyToken string, bot *linebot.Client) error {
 
 // ひとつのWebHookに含まれるEventをマージする
 // ユーザ単位のマージ結果と、全体のマージ結果を返却
-func margeEvents(events []*linebot.Event, g *dao.GormDB) (map[string]entity.Operation, entity.OperationType) {
+func margeEvents(events []*linebot.Event) (map[string]entity.Operation, entity.OperationType) {
 	// key: lineId
 	userOperations := map[string]entity.Operation{}
 	// defaultではCheckを詰めておく
@@ -78,16 +75,16 @@ func margeEvents(events []*linebot.Event, g *dao.GormDB) (map[string]entity.Oper
 		if exist {
 			if op.Operation == entity.Check {
 				// 非初操作かつ、Checkの場合、CheckをMergedとして記録
-				g.InsertOperationHistory(op.UserId, op.Operation, entity.Merged)
+				dao.InsertOperationHistory(op.UserId, op.Operation, entity.Merged)
 			} else {
 				// 非初操作かつ、Check以外の場合、前回の操作をMergedとして記録、かつ、操作を上書き
-				g.UpdateOperationHistoryByOperationId(before.OperationId, entity.Merged)
-				record := g.InsertOperationHistory(op.UserId, op.Operation, entity.Operating)
+				dao.UpdateOperationHistoryByOperationId(before.OperationId, entity.Merged)
+				record := dao.InsertOperationHistory(op.UserId, op.Operation, entity.Operating)
 				op.OperationId = *record.OperationId
 				userOperations[op.UserId] = *op
 			}
 		} else {
-			record := g.InsertOperationHistory(op.UserId, op.Operation, entity.Operating)
+			record := dao.InsertOperationHistory(op.UserId, op.Operation, entity.Operating)
 			op.OperationId = *record.OperationId
 			userOperations[op.UserId] = *op
 		}
@@ -129,15 +126,15 @@ func returnReplyToNotValidUsers(target []*linebot.Event, bot *linebot.Client) {
 	}
 }
 
-func handleResponse(ops map[string]entity.Operation, result entity.KeyServerResponse, bot *linebot.Client, g *dao.GormDB) {
+func handleResponse(ops map[string]entity.Operation, result entity.KeyServerResponse, bot *linebot.Client) {
 	for _, o := range ops {
 		if result.OperationStatus == "another" {
-			go g.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.InOperatingError)
+			go dao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.InOperatingError)
 			reply("＝＝＝他操作の処理中＝＝＝", o.ReplyToken, bot)
 			continue
 		}
 		// Check要求なら結果をそのまま返す
-		go g.UpdateOperationHistoryByOperationId(o.OperationId, entity.Success)
+		go dao.UpdateOperationHistoryByOperationId(o.OperationId, entity.Success)
 		if o.Operation == entity.Check {
 			replyCheckResult(o.ReplyToken, result.KeyStatus, bot)
 		} else {
@@ -154,15 +151,15 @@ func handleResponse(ops map[string]entity.Operation, result entity.KeyServerResp
 	}
 }
 
-func handleErrorResponse(ops map[string]entity.Operation, bot *linebot.Client, err error, g *dao.GormDB) {
+func handleErrorResponse(ops map[string]entity.Operation, bot *linebot.Client, err error) {
 	errorResponse := "エラーが起きてる！\nこのメッセージ見たらなるちゃんに「鍵のエラーハンドリングバグってるよ!」と連絡！"
 	for _, o := range ops {
 		switch err {
 		case &applicationerror.ConnectionError:
-			go g.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerConnectionError)
+			go dao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerConnectionError)
 			errorResponse = "＜＜鍵サーバとの通信に失敗した＞＞\nなるちゃんに連絡して!"
 		case &applicationerror.ResponseParseError:
-			go g.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerConnectionError)
+			go dao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerConnectionError)
 			errorResponse = fmt.Sprintf("！！！何が起きたか分からない！！！\nなるちゃんに↓これと一緒に至急連絡\n%s", applicationerror.ResponseParseError.Code)
 		}
 		reply(errorResponse, o.ReplyToken, bot)

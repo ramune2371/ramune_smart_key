@@ -7,21 +7,24 @@ import (
 	"gorm.io/gorm"
 )
 
-type GormDB struct {
-	DB *gorm.DB
-}
+var db *gorm.DB
 
-func InitDB() *GormDB {
+func InitDB() {
 	database_host := os.Getenv("DATABASE_HOST")
 	dsn := "root:mysql@tcp(" + database_host + ":3306)/smart_key?parseTime=true"
-	db, err := gorm.Open(mysql.Open(dsn))
+	database, err := gorm.Open(mysql.Open(dsn))
 	if err != nil {
-		panic("DB Connection Error")
+		panic(err)
 	}
-	return &GormDB{DB: db}
+	db = database
 }
 
-func (g *GormDB) getTable(tableName string) *gorm.DB {
+func getTable(tableName string) *gorm.DB {
 
-	return g.DB.Table(tableName)
+	return db.Table(tableName)
+}
+
+func Close() {
+	sqldb, _ := db.DB()
+	sqldb.Close()
 }

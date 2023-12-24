@@ -10,10 +10,10 @@ import (
 /*
 LineのIDを元に、ユーザレコードを取得
 */
-func (g *GormDB) GetUserByLineId(lineId string) *entity.UserInfo {
+func GetUserByLineId(lineId string) *entity.UserInfo {
 	var ret *entity.UserInfo
 
-	g.getTable(entity.UserInfoTable).Where("line_id = ?", lineId).Find(&ret)
+	getTable(entity.UserInfoTable).Where("line_id = ?", lineId).Find(&ret)
 	return ret
 }
 
@@ -21,9 +21,9 @@ func (g *GormDB) GetUserByLineId(lineId string) *entity.UserInfo {
 LineのIDを元に、最終アクセス時間を更新
 UI-A-01
 */
-func (g *GormDB) UpdateUserLastAccess(lineId string) bool {
+func UpdateUserLastAccess(lineId string) bool {
 
-	table := g.getTable(entity.UserInfoTable).Where("line_id = ?", lineId).Update("last_access", time.Now())
+	table := getTable(entity.UserInfoTable).Where("line_id = ?", lineId).Update("last_access", time.Now())
 	if table == nil {
 		return false
 	} else {
@@ -35,9 +35,9 @@ func (g *GormDB) UpdateUserLastAccess(lineId string) bool {
 LineのIDを元に、不正なユーザレコードを作成 or 最終アクセス時間を更新
 UI-E-01
 */
-func (g *GormDB) UpsertInvalidUser(lineId string) bool {
+func UpsertInvalidUser(lineId string) bool {
 
-	tx := g.getTable(entity.UserInfoTable)
+	tx := getTable(entity.UserInfoTable)
 
 	if tx == nil {
 		return false
