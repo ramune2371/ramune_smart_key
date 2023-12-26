@@ -47,6 +47,8 @@ var (
 	LBFT040002 = applicationLog{Id: "LBFT040002", MsgFormat: "鍵サーバのレスポンス読み込みに失敗しました。"}
 	// 鍵サーバレスポンス形式不正{response}
 	LBFT040003 = applicationLog{Id: "LBFT040003", MsgFormat: "鍵サーバのレスポンス形式が不正です。%s"}
+	// LINE Botの初期化失敗
+	LBFT040004 = applicationLog{Id: "LBFT040004", MsgFormat: "LineBotの初期化に失敗しました。"}
 	// サーバ起動ログ
 	LBIF900001 = applicationLog{Id: "LBIF900001", MsgFormat: "Server Initialize Completed : app port=%s, metrics port=%s"}
 	// システム障害が発生。

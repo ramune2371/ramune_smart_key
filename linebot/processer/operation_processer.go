@@ -13,10 +13,10 @@ import (
 
 var isOperating bool = false
 
-func HandleEvents(bot *linebot.Client, events []*linebot.Event) error {
+func HandleEvents(events []*linebot.Event) error {
 	validEvents, notActiveUserEvents := validateEvent(events)
 	// (b-3)返却処理
-	returnReplyToNotValidUsers(notActiveUserEvents, bot)
+	returnReplyToNotValidUsers(notActiveUserEvents)
 
 	if len(validEvents) == 0 {
 		return nil
@@ -28,30 +28,21 @@ func HandleEvents(bot *linebot.Client, events []*linebot.Event) error {
 	result, err := handleMasterOperation(masterOperation)
 
 	if err != nil {
-		handleErrorResponse(userOpMap, bot, err)
+		handleErrorResponse(userOpMap, err)
 		return err
 	}
 
-	handleResponse(userOpMap, result, bot)
+	handleResponse(userOpMap, result)
 
 	return nil
 }
 
-func replyCheckResult(replyToken string, result string, bot *linebot.Client) {
+func replyCheckResult(replyToken string, result string) {
 	if result == "True" {
-		reply("あいてるよ", replyToken, bot)
+		transfer.ReplyToToken("あいてるよ", replyToken)
 	} else {
-		reply("しまってるよ", replyToken, bot)
+		transfer.ReplyToToken("しまってるよ", replyToken)
 	}
-}
-
-func reply(resText, replyToken string, bot *linebot.Client) error {
-	logger.Info(&logger.LBIF050001, replyToken, resText)
-	_, err := bot.ReplyMessage(replyToken, linebot.NewTextMessage(resText)).Do()
-	if err != nil {
-		logger.WarnWithStackTrace(err, &logger.LBWR050001, replyToken, resText)
-	}
-	return err
 }
 
 // ひとつのWebHookに含まれるEventをマージする
@@ -108,50 +99,50 @@ func handleMasterOperation(operation entity.OperationType) (entity.KeyServerResp
 	isOperating = true
 	switch operation {
 	case entity.Open:
-		ret, err = transfer.Open()
+		ret, err = transfer.OpenKey()
 	case entity.Close:
-		ret, err = transfer.Close()
+		ret, err = transfer.CloseKey()
 	case entity.Check:
-		ret, err = transfer.Check()
+		ret, err = transfer.CheckKey()
 	default:
 	}
 	isOperating = false
 	return ret, err
 }
 
-func returnReplyToNotValidUsers(target []*linebot.Event, bot *linebot.Client) {
+func returnReplyToNotValidUsers(target []*linebot.Event) {
 	for _, e := range target {
 		logger.Info(&logger.LBIF020001, e.Source.UserID)
-		reply(fmt.Sprintf("無効なユーザだよ。↓の文字列を管理者に送って。\n「%s」", e.Source.UserID), e.ReplyToken, bot)
+		transfer.ReplyToToken(fmt.Sprintf("無効なユーザだよ。↓の文字列を管理者に送って。\n「%s」", e.Source.UserID), e.ReplyToken)
 	}
 }
 
-func handleResponse(ops map[string]entity.Operation, result entity.KeyServerResponse, bot *linebot.Client) {
+func handleResponse(ops map[string]entity.Operation, result entity.KeyServerResponse) {
 	for _, o := range ops {
 		if result.OperationStatus == "another" {
 			go dao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.InOperatingError)
-			reply("＝＝＝他操作の処理中＝＝＝", o.ReplyToken, bot)
+			transfer.ReplyToToken("＝＝＝他操作の処理中＝＝＝", o.ReplyToken)
 			continue
 		}
-		// Check要求なら結果をそのまま返す
 		go dao.UpdateOperationHistoryByOperationId(o.OperationId, entity.Success)
+		// Check要求なら結果をそのまま返す
 		if o.Operation == entity.Check {
-			replyCheckResult(o.ReplyToken, result.KeyStatus, bot)
+			replyCheckResult(o.ReplyToken, result.KeyStatus)
 		} else {
 			if o.Operation == entity.Open && result.KeyStatus == "True" {
-				reply("→鍵開けたで", o.ReplyToken, bot)
+				transfer.ReplyToToken("→鍵開けたで", o.ReplyToken)
 			} else if o.Operation == entity.Close && result.KeyStatus == "False" {
-				reply("→鍵閉めたで", o.ReplyToken, bot)
+				transfer.ReplyToToken("→鍵閉めたで", o.ReplyToken)
 			} else if result.KeyStatus == "True" {
-				reply("→誰かが開けたよ", o.ReplyToken, bot)
+				transfer.ReplyToToken("→誰かが開けたよ", o.ReplyToken)
 			} else {
-				reply("→誰かが閉めたよ", o.ReplyToken, bot)
+				transfer.ReplyToToken("→誰かが閉めたよ", o.ReplyToken)
 			}
 		}
 	}
 }
 
-func handleErrorResponse(ops map[string]entity.Operation, bot *linebot.Client, err error) {
+func handleErrorResponse(ops map[string]entity.Operation, err error) {
 	errorResponse := "エラーが起きてる！\nこのメッセージ見たらなるちゃんに「鍵のエラーハンドリングバグってるよ!」と連絡！"
 	for _, o := range ops {
 		switch err {
@@ -162,6 +153,6 @@ func handleErrorResponse(ops map[string]entity.Operation, bot *linebot.Client, e
 			go dao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerConnectionError)
 			errorResponse = fmt.Sprintf("！！！何が起きたか分からない！！！\nなるちゃんに↓これと一緒に至急連絡\n%s", applicationerror.ResponseParseError.Code)
 		}
-		reply(errorResponse, o.ReplyToken, bot)
+		transfer.ReplyToToken(errorResponse, o.ReplyToken)
 	}
 }

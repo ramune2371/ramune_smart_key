@@ -48,14 +48,14 @@ func request(path string) (entity.KeyServerResponse, error) {
 
 	return ret, nil
 }
-func Open() (entity.KeyServerResponse, error) {
+func OpenKey() (entity.KeyServerResponse, error) {
 	return request("open")
 }
 
-func Close() (entity.KeyServerResponse, error) {
+func CloseKey() (entity.KeyServerResponse, error) {
 	return request("close")
 }
 
-func Check() (entity.KeyServerResponse, error) {
+func CheckKey() (entity.KeyServerResponse, error) {
 	return request("check")
 }
