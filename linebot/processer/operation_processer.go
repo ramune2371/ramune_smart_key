@@ -3,6 +3,7 @@ package processer
 import (
 	"fmt"
 	"linebot/applicationerror"
+	"linebot/dao"
 	"linebot/entity"
 	"linebot/logger"
 	"linebot/transfer"
@@ -12,60 +13,30 @@ import (
 
 var isOperating bool = false
 
-func HandleEvents(bot *linebot.Client, events []*linebot.Event) error {
+func HandleEvents(bot *linebot.Client, events []*linebot.Event) {
 	validEvents, notActiveUserEvents := validateEvent(events)
 	// (b-3)返却処理
-	for _, e := range notActiveUserEvents {
-		logger.Info(&logger.LBIF020001, e.Source.UserID)
-		reply(fmt.Sprintf("無効なユーザだよ。↓の文字列を管理者に送って。\n「%s」", e.Source.UserID), e.ReplyToken, bot)
-	}
+	replyToNotValidUsers(notActiveUserEvents, bot)
 
 	if len(validEvents) == 0 {
-		logger.Debug("empty valid events")
-		return nil
+		return
 	}
 
 	// 後続処理
 	userOpMap, masterOperation := margeEvents(validEvents)
 
+	if isOperating {
+		for _, op := range userOpMap {
+			replyInOperatingError(op, bot)
+		}
+		return
+	}
+
 	result, err := handleMasterOperation(masterOperation)
-
 	if err != nil {
-		errorResponse := "エラーが起きてる！\nこのメッセージ見たらなるちゃんに「鍵のエラーハンドリングバグってるよ!」と連絡！"
-		switch err {
-		case &applicationerror.ConnectionError:
-			errorResponse = "＜＜鍵サーバとの通信に失敗した＞＞\nなるちゃんに連絡して!"
-		case &applicationerror.ResponseParseError:
-			errorResponse = fmt.Sprintf("！！！何が起きたか分からない！！！\nなるちゃんに↓これと一緒に至急連絡\n%s", applicationerror.ResponseParseError.Code)
-		}
-		for _, o := range userOpMap {
-			reply(errorResponse, o.ReplyToken, bot)
-		}
-		return err
+		handleErrorResponse(userOpMap, bot, err)
 	}
-
-	for _, o := range userOpMap {
-		if result.OperationStatus == "another" {
-			reply("＝＝＝他操作の処理中＝＝＝", o.ReplyToken, bot)
-			continue
-		}
-		// Check要求なら結果をそのまま返す
-		if o.Operation == entity.Check {
-			replyCheckResult(o.ReplyToken, result.KeyStatus, bot)
-		} else {
-			if o.Operation == entity.Open && result.KeyStatus == "True" {
-				reply("→鍵開けたで", o.ReplyToken, bot)
-			} else if o.Operation == entity.Close && result.KeyStatus == "False" {
-				reply("→鍵閉めたで", o.ReplyToken, bot)
-			} else if result.KeyStatus == "True" {
-				reply("→誰かが開けたよ", o.ReplyToken, bot)
-			} else {
-				reply("→誰かが閉めたよ", o.ReplyToken, bot)
-			}
-		}
-	}
-
-	return nil
+	handleResponse(userOpMap, result, bot)
 }
 
 func replyCheckResult(replyToken string, result string, bot *linebot.Client) {
@@ -88,40 +59,50 @@ func reply(resText, replyToken string, bot *linebot.Client) error {
 // ひとつのWebHookに含まれるEventをマージする
 // ユーザ単位のマージ結果と、全体のマージ結果を返却
 func margeEvents(events []*linebot.Event) (map[string]entity.Operation, entity.OperationType) {
-	ret := map[string]entity.Operation{}
+	// key: lineId
+	userOperations := map[string]entity.Operation{}
 	// defaultではCheckを詰めておく
 	lastOperation := entity.Check
 	for _, e := range events {
 		// validEventsでeventがTextMessageであること
-		// MessageTextがopen or close or checkであること
-		// は担保済み
-		op := entity.ConvertEventToOperatin(e)
+		// MessageTextがopen or close or checkであることは担保済み
+		op := entity.ConvertEventToOperation(e)
 
 		// 鍵の状態を変更する操作を優先するためCheck以外の場合は全体の操作を上書き
 		if op.Operation != entity.Check {
 			lastOperation = op.Operation
 		}
 
-		// userの初操作または、操作がCheck以外ならユーザ操作を上書き
-		_, ok := ret[op.UserId]
-		if !ok || op.Operation != entity.Check {
-			ret[op.UserId] = *op
+		before, exist := userOperations[op.UserId]
+		if exist {
+			if op.Operation == entity.Check {
+				// 非初操作かつ、Checkの場合、CheckをMergedとして記録
+				dao.InsertOperationHistory(op.UserId, op.Operation, entity.Merged)
+			} else {
+				// 非初操作かつ、Check以外の場合、前回の操作をMergedとして記録、かつ、操作を上書き
+				dao.UpdateOperationHistoryByOperationId(before.OperationId, entity.Merged)
+				record := dao.InsertOperationHistory(op.UserId, op.Operation, entity.Operating)
+				op.OperationId = *record.OperationId
+				userOperations[op.UserId] = *op
+			}
+		} else {
+			record := dao.InsertOperationHistory(op.UserId, op.Operation, entity.Operating)
+			op.OperationId = *record.OperationId
+			userOperations[op.UserId] = *op
 		}
 	}
-	return ret, lastOperation
+	for _, o := range userOperations {
+		logger.Debug(fmt.Sprintf("UserId : %s, OperationId : %d", o.UserId, o.OperationId))
+	}
+	return userOperations, lastOperation
 }
 
 // 鍵操作の実行
 func handleMasterOperation(operation entity.OperationType) (entity.KeyServerResponse, error) {
 
-	if isOperating {
-		ret := entity.KeyServerResponse{KeyStatus: "unknown", OperationStatus: "another"}
-		return ret, nil
-	}
-
+	isOperating = true
 	var ret entity.KeyServerResponse
 	var err error
-	isOperating = true
 	switch operation {
 	case entity.Open:
 		ret, err = transfer.Open()
@@ -133,4 +114,55 @@ func handleMasterOperation(operation entity.OperationType) (entity.KeyServerResp
 	}
 	isOperating = false
 	return ret, err
+}
+
+func replyToNotValidUsers(target []*linebot.Event, bot *linebot.Client) {
+	for _, e := range target {
+		logger.Info(&logger.LBIF020001, e.Source.UserID)
+		reply(fmt.Sprintf("無効なユーザだよ。↓の文字列を管理者に送って。\n「%s」", e.Source.UserID), e.ReplyToken, bot)
+	}
+}
+
+func replyInOperatingError(op entity.Operation, bot *linebot.Client) {
+	go dao.UpdateOperationHistoryWithErrorByOperationId(op.OperationId, entity.InOperatingError)
+	reply("＝＝＝他操作の処理中＝＝＝", op.ReplyToken, bot)
+}
+
+func handleResponse(ops map[string]entity.Operation, result entity.KeyServerResponse, bot *linebot.Client) {
+	for _, o := range ops {
+		if result.OperationStatus == "another" {
+			replyInOperatingError(o, bot)
+			continue
+		}
+		go dao.UpdateOperationHistoryByOperationId(o.OperationId, entity.Success)
+		// Check要求なら結果をそのまま返す
+		if o.Operation == entity.Check {
+			replyCheckResult(o.ReplyToken, result.KeyStatus, bot)
+		} else {
+			if o.Operation == entity.Open && result.KeyStatus == "True" {
+				reply("→鍵開けたで", o.ReplyToken, bot)
+			} else if o.Operation == entity.Close && result.KeyStatus == "False" {
+				reply("→鍵閉めたで", o.ReplyToken, bot)
+			} else if result.KeyStatus == "True" {
+				reply("→誰かが開けたよ", o.ReplyToken, bot)
+			} else {
+				reply("→誰かが閉めたよ", o.ReplyToken, bot)
+			}
+		}
+	}
+}
+
+func handleErrorResponse(ops map[string]entity.Operation, bot *linebot.Client, err error) {
+	errorResponse := "エラーが起きてる！\nこのメッセージ見たらなるちゃんに「鍵のエラーハンドリングバグってるよ!」と連絡！"
+	for _, o := range ops {
+		switch err {
+		case &applicationerror.ConnectionError:
+			go dao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerConnectionError)
+			errorResponse = "＜＜鍵サーバとの通信に失敗した＞＞\nなるちゃんに連絡して!"
+		case &applicationerror.ResponseParseError:
+			go dao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerConnectionError)
+			errorResponse = fmt.Sprintf("！！！何が起きたか分からない！！！\nなるちゃんに↓これと一緒に至急連絡\n%s", applicationerror.ResponseParseError.Code)
+		}
+		reply(errorResponse, o.ReplyToken, bot)
+	}
 }

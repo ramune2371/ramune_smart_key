@@ -16,12 +16,8 @@ import (
 )
 
 /*
-*
-
-	RequestのHTTPヘッダーにあるLINEの署名を検証。
-	検証NGの場合は400Bad Requestを返却
-
-*
+RequestのHTTPヘッダーにあるLINEの署名を検証。
+検証NGの場合は400Bad Requestを返却
 */
 func VerifyLineSignature(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {

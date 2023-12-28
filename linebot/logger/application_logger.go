@@ -35,8 +35,12 @@ var (
 	LBWR010001 = applicationLog{Id: "LBWR010001", MsgFormat: "WebHookの署名の検証中にエラーが発生しました。"}
 	// WebHook署名検証失敗
 	LBWR010002 = applicationLog{Id: "LBWR010002", MsgFormat: "WebHookの署名の検証に失敗しました。"}
-	// メッセージ応答時にエラーが発生しました。replyToken:%replytoken,message:%message
+	// メッセージ応答時にエラーが発生しました。replyToken:%replyToken,message:%message
 	LBWR050001 = applicationLog{Id: "LBWR050001", MsgFormat: "メッセージ応答時にエラーが発生しました。replyToken:%s,message:%s"}
+	// DBでのレコード検索時に指定テーブルにおいて、指定キーのレコードが見つからなかった
+	LBER030001 = applicationLog{Id: "LBER030001", MsgFormat: "指定されたレコードが見つかりません。"}
+	// DBへのレコード保管時にエラー
+	LBER030002 = applicationLog{Id: "LBER030002", MsgFormat: "レコード記録時にエラーが発生しました。"}
 	// Requestログ失敗
 	LBER010001 = applicationLog{Id: "LBER010001", MsgFormat: "Requestログに失敗しました"}
 	// DB接続失敗

@@ -7,7 +7,9 @@
 	"customizations": {
 		"vscode": {
 			"extensions": [
-				"donjayamanne.git-extension-pack"
+				"donjayamanne.git-extension-pack",
+				"seatonjiang.gitmoji-vscode",
+				"streetsidesoftware.code-spell-checker"
 			]
 		}
 	}

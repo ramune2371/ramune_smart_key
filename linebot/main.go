@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"linebot/dao"
 	"linebot/logger"
 	"linebot/middle"
 	"linebot/processer"
@@ -29,6 +30,8 @@ const (
 
 func main() {
 	serverGroup := new(sync.WaitGroup)
+	dao.InitDB()
+	defer dao.Close()
 
 	bot, err := linebot.New(props.ChannelSecret, props.ChannelToken)
 	if err != nil {
@@ -68,7 +71,7 @@ func main() {
 	serverGroup.Add(1)
 	go func() {
 		if err := e.Start(fmt.Sprintf(":%s", SERVER_PORT)); err != nil {
-			e.Logger.Fatal(e)
+			e.Logger.Fatal(err)
 			serverGroup.Done()
 		}
 		serverGroup.Done()

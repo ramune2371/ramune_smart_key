@@ -4,18 +4,19 @@ import (
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
 
-type OperationType string
+type OperationType int
 
 const (
-	Open  OperationType = "open"
-	Close OperationType = "close"
-	Check OperationType = "check"
+	Open  OperationType = 0
+	Close OperationType = 1
+	Check OperationType = 2
 )
 
 type Operation struct {
-	UserId     string
-	Operation  OperationType
-	ReplyToken string
+	OperationId int
+	UserId      string
+	Operation   OperationType
+	ReplyToken  string
 }
 
 func TextToOperation(text string) OperationType {
@@ -27,14 +28,14 @@ func TextToOperation(text string) OperationType {
 	case "check":
 		return Check
 	default:
-		return ""
+		return -1
 	}
 }
 
-func ConvertEventToOperatin(event *linebot.Event) *Operation {
+func ConvertEventToOperation(event *linebot.Event) *Operation {
 	switch message := event.Message.(type) {
 	case *linebot.TextMessage:
-		return &Operation{UserId: event.Source.UserID, Operation: TextToOperation(message.Text), ReplyToken: event.ReplyToken}
+		return &Operation{OperationId: -1, UserId: event.Source.UserID, Operation: TextToOperation(message.Text), ReplyToken: event.ReplyToken}
 	default:
 		return nil
 	}

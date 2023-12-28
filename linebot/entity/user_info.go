@@ -1,9 +1,11 @@
 package entity
 
+import "time"
+
 type UserInfo struct {
-  UserUuuid string
-  LineId string
-  UserName string
-  LastAccess string
-  Active bool
+	UserUuid   string
+	LineId     string
+	UserName   string
+	LastAccess *time.Time `gorm:"autoCreateTime:true"`
+	Active     bool
 }
