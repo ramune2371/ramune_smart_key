@@ -13,28 +13,30 @@ import (
 
 var isOperating bool = false
 
-func HandleEvents(events []*linebot.Event) error {
+func HandleEvents(events []*linebot.Event) {
 	validEvents, notActiveUserEvents := validateEvent(events)
 	// (b-3)返却処理
-	returnReplyToNotValidUsers(notActiveUserEvents)
+	replyToNotValidUsers(notActiveUserEvents)
 
 	if len(validEvents) == 0 {
-		return nil
+		return
 	}
 
 	// 後続処理
 	userOpMap, masterOperation := margeEvents(validEvents)
 
-	result, err := handleMasterOperation(masterOperation)
-
-	if err != nil {
-		handleErrorResponse(userOpMap, err)
-		return err
+	if isOperating {
+		for _, op := range userOpMap {
+			replyInOperatingError(op)
+		}
+		return
 	}
 
+	result, err := handleMasterOperation(masterOperation)
+	if err != nil {
+		handleErrorResponse(userOpMap, err)
+	}
 	handleResponse(userOpMap, result)
-
-	return nil
 }
 
 func replyCheckResult(replyToken string, result string) {
@@ -55,7 +57,7 @@ func margeEvents(events []*linebot.Event) (map[string]entity.Operation, entity.O
 	for _, e := range events {
 		// validEventsでeventがTextMessageであること
 		// MessageTextがopen or close or checkであることは担保済み
-		op := entity.ConvertEventToOperatin(e)
+		op := entity.ConvertEventToOperation(e)
 
 		// 鍵の状態を変更する操作を優先するためCheck以外の場合は全体の操作を上書き
 		if op.Operation != entity.Check {
@@ -89,14 +91,9 @@ func margeEvents(events []*linebot.Event) (map[string]entity.Operation, entity.O
 // 鍵操作の実行
 func handleMasterOperation(operation entity.OperationType) (entity.KeyServerResponse, error) {
 
-	if isOperating {
-		ret := entity.KeyServerResponse{KeyStatus: "unknown", OperationStatus: "another"}
-		return ret, nil
-	}
-
+	isOperating = true
 	var ret entity.KeyServerResponse
 	var err error
-	isOperating = true
 	switch operation {
 	case entity.Open:
 		ret, err = transfer.OpenKey()
@@ -110,18 +107,22 @@ func handleMasterOperation(operation entity.OperationType) (entity.KeyServerResp
 	return ret, err
 }
 
-func returnReplyToNotValidUsers(target []*linebot.Event) {
+func replyToNotValidUsers(target []*linebot.Event) {
 	for _, e := range target {
 		logger.Info(&logger.LBIF020001, e.Source.UserID)
 		transfer.ReplyToToken(fmt.Sprintf("無効なユーザだよ。↓の文字列を管理者に送って。\n「%s」", e.Source.UserID), e.ReplyToken)
 	}
 }
 
+func replyInOperatingError(op entity.Operation) {
+	go dao.UpdateOperationHistoryWithErrorByOperationId(op.OperationId, entity.InOperatingError)
+	transfer.ReplyToToken("＝＝＝他操作の処理中＝＝＝", op.ReplyToken)
+}
+
 func handleResponse(ops map[string]entity.Operation, result entity.KeyServerResponse) {
 	for _, o := range ops {
 		if result.OperationStatus == "another" {
-			go dao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.InOperatingError)
-			transfer.ReplyToToken("＝＝＝他操作の処理中＝＝＝", o.ReplyToken)
+			replyInOperatingError(o)
 			continue
 		}
 		go dao.UpdateOperationHistoryByOperationId(o.OperationId, entity.Success)
