@@ -32,7 +32,7 @@ func TextToOperation(text string) OperationType {
 	}
 }
 
-func ConvertEventToOperatin(event *linebot.Event) *Operation {
+func ConvertEventToOperation(event *linebot.Event) *Operation {
 	switch message := event.Message.(type) {
 	case *linebot.TextMessage:
 		return &Operation{OperationId: -1, UserId: event.Source.UserID, Operation: TextToOperation(message.Text), ReplyToken: event.ReplyToken}
