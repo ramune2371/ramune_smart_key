@@ -4,7 +4,7 @@ import (
 	"errors"
 	"linebot/logger"
 	"linebot/middle"
-	"linebot/processer"
+	"linebot/processor"
 	"linebot/transfer"
 	"net/http"
 	"sync"
@@ -26,14 +26,14 @@ func requestLog(next echo.HandlerFunc) echo.HandlerFunc {
 }
 
 func StartServer() {
-
 	serverGroup := new(sync.WaitGroup)
-
 	// setup & run prometheus endpoints
+	serverGroup.Add(1)
 	go initMetricsServer(serverGroup)
 	// setup & run app server
+	serverGroup.Add(1)
 	go initAppServer(serverGroup)
-
+	logger.Info(&logger.LBIF900001, server_port, metrics_port)
 	serverGroup.Wait()
 }
 
@@ -42,13 +42,12 @@ func handleLineAPIRequest(c echo.Context) error {
 	if err != nil {
 		return c.NoContent(http.StatusBadRequest)
 	}
-	processer.HandleEvents(events)
+	processor.HandleEvents(events)
 
 	return c.String(http.StatusOK, "")
 }
 
 func initAppServer(sg *sync.WaitGroup) {
-	sg.Add(1)
 	appServer := echo.New()
 	appServer.HideBanner = true
 	appServer.HidePort = true
@@ -65,7 +64,6 @@ func initAppServer(sg *sync.WaitGroup) {
 }
 
 func initMetricsServer(sg *sync.WaitGroup) {
-	sg.Add(1)
 	metricsServer := echo.New()
 	metricsServer.HideBanner = true
 	metricsServer.HidePort = true
