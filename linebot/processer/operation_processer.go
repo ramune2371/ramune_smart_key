@@ -13,13 +13,13 @@ import (
 
 var isOperating bool = false
 
-func HandleEvents(bot *linebot.Client, events []*linebot.Event) error {
+func HandleEvents(bot *linebot.Client, events []*linebot.Event) {
 	validEvents, notActiveUserEvents := validateEvent(events)
 	// (b-3)返却処理
 	returnReplyToNotValidUsers(notActiveUserEvents, bot)
 
 	if len(validEvents) == 0 {
-		return nil
+		return
 	}
 
 	// 後続処理
@@ -29,12 +29,9 @@ func HandleEvents(bot *linebot.Client, events []*linebot.Event) error {
 
 	if err != nil {
 		handleErrorResponse(userOpMap, bot, err)
-		return err
 	}
 
 	handleResponse(userOpMap, result, bot)
-
-	return nil
 }
 
 func replyCheckResult(replyToken string, result string, bot *linebot.Client) {

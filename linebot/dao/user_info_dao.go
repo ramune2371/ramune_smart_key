@@ -71,7 +71,7 @@ func UpsertInvalidUser(lineId string) bool {
 			ret.UserName = "Unknown"
 		}
 		ret.Active = false
-		if err := tx.Save(&ret).Error; err != nil {
+		if err := tx.Where("line_id = ?", lineId).Save(&ret).Error; err != nil {
 			logger.ErrorWithStackTrace(err, &logger.LBER030002)
 			return err
 		}
