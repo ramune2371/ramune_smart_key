@@ -2,9 +2,11 @@ package dao
 
 import (
 	"linebot/entity"
+	"linebot/logger"
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 /*
@@ -13,7 +15,18 @@ LineのIDを元に、ユーザレコードを取得
 func GetUserByLineId(lineId string) *entity.UserInfo {
 	var ret *entity.UserInfo
 
-	getTable(entity.UserInfoTable).Where("line_id = ?", lineId).Find(&ret)
+	res := readOnly(entity.UserInfoTable, func(tx *gorm.DB) error {
+		if err := tx.Where("line_id = ?", lineId).Find(&ret).Error; err != nil {
+			logger.ErrorWithStackTrace(err, &logger.LBER030001)
+			return err
+		}
+		return nil
+	})
+
+	if res != nil {
+		return nil
+	}
+
 	return ret
 }
 
@@ -23,8 +36,15 @@ UI-A-01
 */
 func UpdateUserLastAccess(lineId string) bool {
 
-	table := getTable(entity.UserInfoTable).Where("line_id = ?", lineId).Update("last_access", time.Now())
-	if table == nil {
+	res := readWrite(entity.UserInfoTable, func(tx *gorm.DB) error {
+		if err := tx.Where("line_id = ?", lineId).Update("last_access", time.Now()).Error; err != nil {
+			logger.ErrorWithStackTrace(err, &logger.LBER030002)
+			return err
+		}
+		return nil
+	})
+
+	if res != nil {
 		return false
 	} else {
 		return true
@@ -37,23 +57,29 @@ UI-E-01
 */
 func UpsertInvalidUser(lineId string) bool {
 
-	tx := getTable(entity.UserInfoTable)
-
-	if tx == nil {
-		return false
-	}
-
-	tx.Begin()
 	var ret *entity.UserInfo
-	tx.Where("line_id = ?", lineId).Find(&ret)
-	if ret.UserUuid == "" {
-		ret.UserUuid = uuid.New().String()
+	res := readWrite(entity.UserInfoTable, func(tx *gorm.DB) error {
+		if err := tx.Where("line_id = ?", lineId).Find(&ret).Error; err != nil {
+			logger.ErrorWithStackTrace(err, &logger.LBER030001)
+			return err
+		}
+		if ret.UserUuid == "" {
+			ret.UserUuid = uuid.New().String()
+		}
+		ret.LineId = lineId
+		if ret.UserName == "" {
+			ret.UserName = "Unknown"
+		}
+		ret.Active = false
+		if err := tx.Save(&ret).Error; err != nil {
+			logger.ErrorWithStackTrace(err, &logger.LBER030002)
+			return err
+		}
+		return nil
+	})
+	if res != nil {
+		return false
+	} else {
+		return true
 	}
-	ret.LineId = lineId
-	if ret.UserName == "" {
-		ret.UserName = "Unknown"
-	}
-	tx.Save(&ret)
-	tx.Commit()
-	return true
 }

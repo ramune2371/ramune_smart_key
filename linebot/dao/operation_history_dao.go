@@ -4,24 +4,33 @@ import (
 	"fmt"
 	"linebot/entity"
 	"linebot/logger"
+
+	"gorm.io/gorm"
 )
 
 // Operation HistoryのInsert
 // args: lineId,operationType,operationResult
 // return: insertしたレコード
 func InsertOperationHistory(lineId string, operationType entity.OperationType, operationResult entity.OperationResult) *entity.OperationHistory {
-	table := getTable(entity.OperationHistoryTable)
-	if table == nil {
-		return nil
-	}
 
 	data := entity.OperationHistory{
 		LineId:          lineId,
 		OperationType:   operationType,
 		OperationResult: operationResult,
 	}
-	table.Create(&data)
-	table.First(&data)
+
+	res := readWrite(entity.OperationHistoryTable, func(tx *gorm.DB) error {
+		if err := tx.Create(&data).Error; err != nil {
+			logger.ErrorWithStackTrace(err, &logger.LBER030002)
+			return err
+		}
+		return nil
+	})
+
+	if res != nil {
+		return nil
+	}
+
 	logger.Debug(fmt.Sprintf("data: %+v", data))
 	return &data
 }
@@ -31,15 +40,26 @@ func InsertOperationHistory(lineId string, operationType entity.OperationType, o
 // args: operationId=更新対象のoperationId, result=更新するOperationResult
 // return: 更新したレコードのID(error時は-1)
 func UpdateOperationHistoryByOperationId(operationId int, result entity.OperationResult) int {
-	table := getTable(entity.OperationHistoryTable)
 
-	if table == nil {
+	var target entity.OperationHistory
+
+	res := readWrite(entity.OperationHistoryTable, func(tx *gorm.DB) error {
+		if err := tx.Where("operation_id = ?", operationId).First(&target).Error; err != nil {
+			logger.ErrorWithStackTrace(err, &logger.LBER030001)
+			return err
+		}
+		target.OperationResult = result
+		if err := tx.Save(&target).Error; err != nil {
+			logger.ErrorWithStackTrace(err, &logger.LBER030002)
+			return err
+		}
+		return nil
+	})
+
+	if res != nil {
 		return -1
 	}
-	var target entity.OperationHistory
-	table.Where("operation_id = ?", operationId).First(&target)
-	target.OperationResult = result
-	table.Save(&target)
+
 	return *target.OperationId
 }
 
@@ -48,14 +68,22 @@ func UpdateOperationHistoryByOperationId(operationId int, result entity.Operatio
 // args: operationId=更新対象のOperationId, errorCode=更新するOperationErrorCode
 // return 更新したOperationId。エラー時は-1
 func UpdateOperationHistoryWithErrorByOperationId(operationId int, errorCode entity.OperationErrorCode) int {
-	table := getTable(entity.OperationHistoryTable)
-	if table == nil {
+	var target entity.OperationHistory
+	res := readWrite(entity.OperationHistoryTable, func(tx *gorm.DB) error {
+		if err := tx.Where("operation_id = ?", operationId).Find(&target).Error; err != nil {
+			logger.ErrorWithStackTrace(err, &logger.LBER030001)
+			return err
+		}
+		target.ErrorCode = errorCode
+		target.OperationResult = entity.Error
+		if err := tx.Save(target).Error; err != nil {
+			logger.ErrorWithStackTrace(err, &logger.LBER030001)
+			return err
+		}
+		return nil
+	})
+	if res == nil {
 		return -1
 	}
-	var target entity.OperationHistory
-	table.Where("operation_id = ?", operationId).Find(&target)
-	target.ErrorCode = errorCode
-	target.OperationResult = entity.Error
-	table.Save(target)
 	return *target.OperationId
 }

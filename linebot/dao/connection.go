@@ -5,6 +5,7 @@ import (
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/plugin/dbresolver"
 )
 
 var db *gorm.DB
@@ -22,6 +23,14 @@ func InitDB() {
 func getTable(tableName string) *gorm.DB {
 
 	return db.Table(tableName)
+}
+
+func readWrite(tableName string, fc func(tx *gorm.DB) error) error {
+	return getTable(tableName).Clauses(dbresolver.Write).Transaction(fc)
+}
+
+func readOnly(tableName string, fc func(tx *gorm.DB) error) error {
+	return getTable(tableName).Clauses(dbresolver.Read).Transaction(fc)
 }
 
 func Close() {
