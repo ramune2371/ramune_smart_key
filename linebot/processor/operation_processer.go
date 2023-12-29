@@ -34,17 +34,9 @@ func HandleEvents(events []*linebot.Event) {
 
 	result, err := handleMasterOperation(masterOperation)
 	if err != nil {
-		handleErrorResponse(userOpMap, err)
+		handleKeyServerError(userOpMap, err)
 	}
-	handleResponse(userOpMap, result)
-}
-
-func replyCheckResult(replyToken string, result string) {
-	if result == "True" {
-		transfer.ReplyToToken("あいてるよ", replyToken)
-	} else {
-		transfer.ReplyToToken("しまってるよ", replyToken)
-	}
+	handleKeyServerResult(userOpMap, result)
 }
 
 // ひとつのWebHookに含まれるEventをマージする
@@ -114,14 +106,22 @@ func replyToNotValidUsers(target []*linebot.Event) {
 	}
 }
 
+func replyCheckResult(replyToken string, result entity.KeyStatus) {
+	if result == entity.KeyStatusOpen {
+		transfer.ReplyToToken("あいてるよ", replyToken)
+	} else {
+		transfer.ReplyToToken("しまってるよ", replyToken)
+	}
+}
+
 func replyInOperatingError(op entity.Operation) {
 	go dao.UpdateOperationHistoryWithErrorByOperationId(op.OperationId, entity.InOperatingError)
 	transfer.ReplyToToken("＝＝＝他操作の処理中＝＝＝", op.ReplyToken)
 }
 
-func handleResponse(ops map[string]entity.Operation, result entity.KeyServerResponse) {
+func handleKeyServerResult(ops map[string]entity.Operation, result entity.KeyServerResponse) {
 	for _, o := range ops {
-		if result.OperationStatus == "another" {
+		if result.OperationStatus == entity.OperationAnother {
 			replyInOperatingError(o)
 			continue
 		}
@@ -130,11 +130,11 @@ func handleResponse(ops map[string]entity.Operation, result entity.KeyServerResp
 		if o.Operation == entity.Check {
 			replyCheckResult(o.ReplyToken, result.KeyStatus)
 		} else {
-			if o.Operation == entity.Open && result.KeyStatus == "True" {
+			if o.Operation == entity.Open && result.KeyStatus == entity.KeyStatusOpen {
 				transfer.ReplyToToken("→鍵開けたで", o.ReplyToken)
-			} else if o.Operation == entity.Close && result.KeyStatus == "False" {
+			} else if o.Operation == entity.Close && result.KeyStatus == entity.KeyStatusClose {
 				transfer.ReplyToToken("→鍵閉めたで", o.ReplyToken)
-			} else if result.KeyStatus == "True" {
+			} else if result.KeyStatus == entity.KeyStatusOpen {
 				transfer.ReplyToToken("→誰かが開けたよ", o.ReplyToken)
 			} else {
 				transfer.ReplyToToken("→誰かが閉めたよ", o.ReplyToken)
@@ -143,7 +143,7 @@ func handleResponse(ops map[string]entity.Operation, result entity.KeyServerResp
 	}
 }
 
-func handleErrorResponse(ops map[string]entity.Operation, err error) {
+func handleKeyServerError(ops map[string]entity.Operation, err error) {
 	errorResponse := "エラーが起きてる！\nこのメッセージ見たらなるちゃんに「鍵のエラーハンドリングバグってるよ!」と連絡！"
 	for _, o := range ops {
 		switch err {
