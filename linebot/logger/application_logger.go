@@ -55,6 +55,8 @@ var (
 	LBFT040004 = applicationLog{Id: "LBFT040004", MsgFormat: "LineBotの初期化に失敗しました。"}
 	// サーバ起動ログ
 	LBIF900001 = applicationLog{Id: "LBIF900001", MsgFormat: "Server Initialize Completed : app port=%s, metrics port=%s"}
+	// 暗号化処理に失敗
+	LBFT900001 = applicationLog{Id: "LBFT900001", MsgFormat: "暗号化処理に失敗しました。"}
 	// システム障害が発生。
 	LBFT909999 = applicationLog{Id: "LBFT909999", MsgFormat: "システム障害が発生しました。"}
 )
