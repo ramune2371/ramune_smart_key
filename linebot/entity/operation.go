@@ -1,6 +1,8 @@
 package entity
 
 import (
+	"linebot/security"
+
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
 
@@ -32,10 +34,11 @@ func TextToOperation(text string) OperationType {
 	}
 }
 
+// LINE Webhook Eventをentity.Operationに変換&LINE IDをソルト付きハッシュ化
 func ConvertEventToOperation(event *linebot.Event) *Operation {
 	switch message := event.Message.(type) {
 	case *linebot.TextMessage:
-		return &Operation{OperationId: -1, UserId: event.Source.UserID, Operation: TextToOperation(message.Text), ReplyToken: event.ReplyToken}
+		return &Operation{OperationId: -1, UserId: security.SaltHash(event.Source.UserID), Operation: TextToOperation(message.Text), ReplyToken: event.ReplyToken}
 	default:
 		return nil
 	}
