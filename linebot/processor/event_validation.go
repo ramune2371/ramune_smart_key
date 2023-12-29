@@ -1,4 +1,4 @@
-package processer
+package processor
 
 import (
 	"linebot/dao"
