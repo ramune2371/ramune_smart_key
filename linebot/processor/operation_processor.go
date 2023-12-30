@@ -35,21 +35,19 @@ func HandleEvents(events []*linebot.Event) {
 	result, err := handleMasterOperation(masterOperation)
 	if err != nil {
 		handleKeyServerError(userOpMap, err)
+		return
 	}
 	handleKeyServerResult(userOpMap, result)
 }
 
 // ひとつのWebHookに含まれるEventをマージする
 // ユーザ単位のマージ結果と、全体のマージ結果を返却
-func margeEvents(events []*linebot.Event) (map[string]entity.Operation, entity.OperationType) {
+func margeEvents(operations []*entity.Operation) (map[string]entity.Operation, entity.OperationType) {
 	// key: lineId
 	userOperations := map[string]entity.Operation{}
 	// defaultではCheckを詰めておく
 	lastOperation := entity.Check
-	for _, e := range events {
-		// validEventsでeventがTextMessageであること
-		// MessageTextがopen or close or checkであることは担保済み
-		op := entity.ConvertEventToOperation(e)
+	for _, op := range operations {
 
 		// 鍵の状態を変更する操作を優先するためCheck以外の場合は全体の操作を上書き
 		if op.Operation != entity.Check {
@@ -99,10 +97,11 @@ func handleMasterOperation(operation entity.OperationType) (entity.KeyServerResp
 	return ret, err
 }
 
-func replyToNotValidUsers(target []*linebot.Event) {
-	for _, e := range target {
-		logger.Info(&logger.LBIF020001, e.Source.UserID)
-		transfer.ReplyToToken(fmt.Sprintf("無効なユーザだよ。↓の文字列を管理者に送って。\n「%s」", e.Source.UserID), e.ReplyToken)
+func replyToNotValidUsers(target []*entity.Operation) {
+	for _, op := range target {
+		logger.Info(&logger.LBIF020001, op.UserId)
+		msg := fmt.Sprintf("無効なユーザだよ。↓の文字列を管理者に送って。\n「%s」", op.UserId)
+		transfer.ReplyToToken(msg, op.ReplyToken)
 	}
 }
 
