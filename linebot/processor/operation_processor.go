@@ -3,7 +3,8 @@ package processor
 import (
 	"fmt"
 	"linebot/applicationerror"
-	"linebot/dao"
+	"linebot/dao/operation_history"
+	"linebot/dao/user_info"
 	"linebot/entity"
 	"linebot/logger"
 	"linebot/transfer"
@@ -11,10 +12,26 @@ import (
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
 
+type OperationProcessor struct {
+	OpHistoryDao operation_history.OperationHistoryDao
+	UserInfoDao  user_info.UserInfoDao
+}
+
 var isOperating bool = false
 
-func HandleEvents(events []*linebot.Event) {
-	validEvents, notActiveUserEvents := validateEvent(events)
+func (opProcessor OperationProcessor) HandleEvents(events []*linebot.Event) {
+	validEvents, notActiveUserEvents := EventValidation{opProcessor.UserInfoDao}.validateEvent(events)
+
+	// 不正ユーザの記録
+	for _, invalidEvent := range notActiveUserEvents {
+		opProcessor.UserInfoDao.UpsertInvalidUser(invalidEvent.UserId)
+	}
+
+	// 有効なユーザのアクセス記録
+	for _, validEvent := range validEvents {
+		opProcessor.UserInfoDao.UpdateUserLastAccess(validEvent.UserId)
+	}
+
 	// (b-3)返却処理
 	replyToNotValidUsers(notActiveUserEvents)
 
@@ -23,26 +40,26 @@ func HandleEvents(events []*linebot.Event) {
 	}
 
 	// 後続処理
-	userOpMap, masterOperation := margeEvents(validEvents)
+	userOpMap, masterOperation := opProcessor.margeEvents(validEvents)
 
 	if isOperating {
 		for _, op := range userOpMap {
-			replyInOperatingError(op)
+			opProcessor.replyInOperatingError(op)
 		}
 		return
 	}
 
 	result, err := handleMasterOperation(masterOperation)
 	if err != nil {
-		handleKeyServerError(userOpMap, err)
+		opProcessor.handleKeyServerError(userOpMap, err)
 		return
 	}
-	handleKeyServerResult(userOpMap, result)
+	opProcessor.handleKeyServerResult(userOpMap, result)
 }
 
 // ひとつのWebHookに含まれるEventをマージする
 // ユーザ単位のマージ結果と、全体のマージ結果を返却
-func margeEvents(operations []*entity.Operation) (map[string]entity.Operation, entity.OperationType) {
+func (opProcessor OperationProcessor) margeEvents(operations []*entity.Operation) (map[string]entity.Operation, entity.OperationType) {
 	// key: lineId
 	userOperations := map[string]entity.Operation{}
 	// defaultではCheckを詰めておく
@@ -58,16 +75,16 @@ func margeEvents(operations []*entity.Operation) (map[string]entity.Operation, e
 		if exist {
 			if op.Operation == entity.Check {
 				// 非初操作かつ、Checkの場合、CheckをMergedとして記録
-				dao.InsertOperationHistory(op.UserId, op.Operation, entity.Merged)
+				opProcessor.OpHistoryDao.InsertOperationHistory(op.UserId, op.Operation, entity.Merged)
 			} else {
 				// 非初操作かつ、Check以外の場合、前回の操作をMergedとして記録、かつ、操作を上書き
-				dao.UpdateOperationHistoryByOperationId(before.OperationId, entity.Merged)
-				record := dao.InsertOperationHistory(op.UserId, op.Operation, entity.Operating)
+				opProcessor.OpHistoryDao.UpdateOperationHistoryByOperationId(before.OperationId, entity.Merged)
+				record := opProcessor.OpHistoryDao.InsertOperationHistory(op.UserId, op.Operation, entity.Operating)
 				op.OperationId = *record.OperationId
 				userOperations[op.UserId] = *op
 			}
 		} else {
-			record := dao.InsertOperationHistory(op.UserId, op.Operation, entity.Operating)
+			record := opProcessor.OpHistoryDao.InsertOperationHistory(op.UserId, op.Operation, entity.Operating)
 			op.OperationId = *record.OperationId
 			userOperations[op.UserId] = *op
 		}
@@ -113,18 +130,18 @@ func replyCheckResult(replyToken string, result entity.KeyStatus) {
 	}
 }
 
-func replyInOperatingError(op entity.Operation) {
-	go dao.UpdateOperationHistoryWithErrorByOperationId(op.OperationId, entity.InOperatingError)
+func (opProcessor OperationProcessor) replyInOperatingError(op entity.Operation) {
+	go opProcessor.OpHistoryDao.UpdateOperationHistoryWithErrorByOperationId(op.OperationId, entity.InOperatingError)
 	transfer.ReplyToToken("＝＝＝他操作の処理中＝＝＝", op.ReplyToken)
 }
 
-func handleKeyServerResult(ops map[string]entity.Operation, result entity.KeyServerResponse) {
+func (opProcessor OperationProcessor) handleKeyServerResult(ops map[string]entity.Operation, result entity.KeyServerResponse) {
 	for _, o := range ops {
 		if result.OperationStatus == entity.OperationAnother {
-			replyInOperatingError(o)
+			opProcessor.replyInOperatingError(o)
 			continue
 		}
-		go dao.UpdateOperationHistoryByOperationId(o.OperationId, entity.Success)
+		go opProcessor.OpHistoryDao.UpdateOperationHistoryByOperationId(o.OperationId, entity.Success)
 		// Check要求なら結果をそのまま返す
 		if o.Operation == entity.Check {
 			replyCheckResult(o.ReplyToken, result.KeyStatus)
@@ -142,15 +159,15 @@ func handleKeyServerResult(ops map[string]entity.Operation, result entity.KeySer
 	}
 }
 
-func handleKeyServerError(ops map[string]entity.Operation, err error) {
+func (opProcessor OperationProcessor) handleKeyServerError(ops map[string]entity.Operation, err error) {
 	errorResponse := "エラーが起きてる！\nこのメッセージ見たらなるちゃんに「鍵のエラーハンドリングバグってるよ!」と連絡！"
 	for _, o := range ops {
 		switch err {
 		case &applicationerror.ConnectionError:
-			go dao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerConnectionError)
+			go opProcessor.OpHistoryDao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerConnectionError)
 			errorResponse = "＜＜鍵サーバとの通信に失敗した＞＞\nなるちゃんに連絡して!"
 		case &applicationerror.ResponseParseError:
-			go dao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerConnectionError)
+			go opProcessor.OpHistoryDao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerConnectionError)
 			errorResponse = fmt.Sprintf("！！！何が起きたか分からない！！！\nなるちゃんに↓これと一緒に至急連絡\n%s", applicationerror.ResponseParseError.Code)
 		}
 		transfer.ReplyToToken(errorResponse, o.ReplyToken)

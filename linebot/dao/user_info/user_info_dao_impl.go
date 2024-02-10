@@ -1,6 +1,7 @@
-package dao
+package user_info
 
 import (
+	"linebot/dao/database"
 	"linebot/entity"
 	"linebot/logger"
 	"time"
@@ -9,13 +10,17 @@ import (
 	"gorm.io/gorm"
 )
 
+type UserInfoDaoImpl struct {
+	Database database.DatabaseConnection
+}
+
 /*
 LineのIDを元に、ユーザレコードを取得
 */
-func GetUserByLineId(lineId string) *entity.UserInfo {
+func (uiDao UserInfoDaoImpl) GetUserByLineId(lineId string) *entity.UserInfo {
 	var ret *entity.UserInfo
 
-	res := readOnly(entity.UserInfoTable, func(tx *gorm.DB) error {
+	res := uiDao.Database.ReadOnly(entity.UserInfoTable, func(tx *gorm.DB) error {
 		if err := tx.Where("line_id = ?", lineId).Find(&ret).Error; err != nil {
 			logger.ErrorWithStackTrace(err, &logger.LBER030001)
 			return err
@@ -34,9 +39,9 @@ func GetUserByLineId(lineId string) *entity.UserInfo {
 LineのIDを元に、最終アクセス時間を更新
 UI-A-01
 */
-func UpdateUserLastAccess(lineId string) bool {
+func (uiDao UserInfoDaoImpl) UpdateUserLastAccess(lineId string) bool {
 
-	res := readWrite(entity.UserInfoTable, func(tx *gorm.DB) error {
+	res := uiDao.Database.ReadWrite(entity.UserInfoTable, func(tx *gorm.DB) error {
 		if err := tx.Where("line_id = ?", lineId).Update("last_access", time.Now()).Error; err != nil {
 			logger.ErrorWithStackTrace(err, &logger.LBER030002)
 			return err
@@ -55,10 +60,10 @@ func UpdateUserLastAccess(lineId string) bool {
 LineのIDを元に、不正なユーザレコードを作成 or 最終アクセス時間を更新
 UI-E-01
 */
-func UpsertInvalidUser(lineId string) bool {
+func (uiDao UserInfoDaoImpl) UpsertInvalidUser(lineId string) bool {
 
 	var ret *entity.UserInfo
-	res := readWrite(entity.UserInfoTable, func(tx *gorm.DB) error {
+	res := uiDao.Database.ReadWrite(entity.UserInfoTable, func(tx *gorm.DB) error {
 		if err := tx.Where("line_id = ?", lineId).Find(&ret).Error; err != nil {
 			logger.ErrorWithStackTrace(err, &logger.LBER030001)
 			return err

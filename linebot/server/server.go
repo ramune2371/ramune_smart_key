@@ -2,10 +2,9 @@ package server
 
 import (
 	"errors"
+	"linebot/controller"
 	"linebot/logger"
 	"linebot/middle"
-	"linebot/processor"
-	"linebot/transfer"
 	"net/http"
 	"sync"
 
@@ -37,24 +36,17 @@ func StartServer() {
 	serverGroup.Wait()
 }
 
-func handleLineAPIRequest(c echo.Context) error {
-	events, err := transfer.ParseLineRequest(c.Request())
-	if err != nil {
-		return c.NoContent(http.StatusBadRequest)
-	}
-	processor.HandleEvents(events)
-
-	return c.String(http.StatusOK, "")
-}
-
 func initAppServer(sg *sync.WaitGroup) {
+	controller := new(controller.LineEventController)
+	controller.InitController()
+
 	appServer := echo.New()
 	appServer.HideBanner = true
 	appServer.HidePort = true
 	appServer.Use(requestLog)
 	appServer.Use(middle.VerifyLineSignature)
 	appServer.Use(echoprometheus.NewMiddleware("linebot"))
-	appServer.POST("/", handleLineAPIRequest)
+	appServer.POST("/", controller.HandleLineAPIRequest)
 	if err := appServer.Start(server_port); err != nil {
 		logger.FatalWithStackTrace(err, &logger.LBFT909999)
 		sg.Done()
