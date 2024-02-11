@@ -280,6 +280,7 @@ func TestCheckMessage(t *testing.T) {
 	closeEvent := createTextMessage("close", "closeUser", "closeToken")
 	checkEvent := createTextMessage("check", "checkUser", "checkToken")
 	emptyEvent := createTextMessage("", "emptyUser", "emptyToken")
+	invalidTextEvent := createTextMessage("fizz", "emptyUser", "emptyToken")
 	invalidEvent := &linebot.Event{}
 
 	openOperation := &entity.Operation{OperationId: -1, UserId: "openUser", Operation: entity.Open, ReplyToken: "openToken"}
@@ -317,6 +318,7 @@ func TestCheckMessage(t *testing.T) {
 				closeEvent,
 				checkEvent,
 				emptyEvent,
+				invalidTextEvent,
 				invalidEvent,
 			},
 			expect: []*entity.Operation{
