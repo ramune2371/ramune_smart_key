@@ -32,7 +32,11 @@ func TextToOperation(text string) entity.OperationType {
 func (ec EventConverterImpl) ConvertEventToEncryptedOperation(event *linebot.Event) *entity.Operation {
 	switch message := event.Message.(type) {
 	case *linebot.TextMessage:
-		return &entity.Operation{OperationId: -1, UserId: ec.Encryptor.SaltHash(event.Source.UserID), Operation: TextToOperation(message.Text), ReplyToken: event.ReplyToken}
+		opType := TextToOperation(message.Text)
+		if opType == -1 {
+			return nil
+		}
+		return &entity.Operation{OperationId: -1, UserId: ec.Encryptor.SaltHash(event.Source.UserID), Operation: opType, ReplyToken: event.ReplyToken}
 	default:
 		return nil
 	}

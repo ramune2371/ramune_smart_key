@@ -28,5 +28,4 @@ func (op Operation) IsEqual(target Operation) bool {
 		op.OperationId == target.OperationId &&
 		op.ReplyToken == target.ReplyToken &&
 		op.UserId == target.UserId
-
 }
