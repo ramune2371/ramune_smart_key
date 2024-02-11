@@ -37,6 +37,7 @@ func StartServer() {
 }
 
 func initAppServer(sg *sync.WaitGroup) {
+
 	controller := new(controller.LineEventController)
 	controller.InitController()
 

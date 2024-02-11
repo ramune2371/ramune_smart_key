@@ -7,20 +7,24 @@ import (
 	"linebot/dao/user_info"
 	"linebot/entity"
 	"linebot/logger"
-	"linebot/transfer"
+	"linebot/transfer/key_server"
+	"linebot/transfer/line"
 
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
 
 type OperationProcessor struct {
-	OpHistoryDao operation_history.OperationHistoryDao
-	UserInfoDao  user_info.UserInfoDao
+	OpHistoryDao      operation_history.OperationHistoryDao
+	UserInfoDao       user_info.UserInfoDao
+	LineTransfer      line.LineTransfer
+	KeyServerTransfer key_server.KeyServerTransfer
 }
 
 var isOperating bool = false
 
 func (opProcessor OperationProcessor) HandleEvents(events []*linebot.Event) {
-	validEvents, notActiveUserEvents := EventValidation{opProcessor.UserInfoDao}.validateEvent(events)
+	validator := EventValidator{UserInfoDao: opProcessor.UserInfoDao}
+	validEvents, notActiveUserEvents := validator.validateEvent(events)
 
 	// 不正ユーザの記録
 	for _, invalidEvent := range notActiveUserEvents {
@@ -33,7 +37,7 @@ func (opProcessor OperationProcessor) HandleEvents(events []*linebot.Event) {
 	}
 
 	// (b-3)返却処理
-	replyToNotValidUsers(notActiveUserEvents)
+	opProcessor.replyToNotValidUsers(notActiveUserEvents)
 
 	if len(validEvents) == 0 {
 		return
@@ -49,7 +53,7 @@ func (opProcessor OperationProcessor) HandleEvents(events []*linebot.Event) {
 		return
 	}
 
-	result, err := handleMasterOperation(masterOperation)
+	result, err := opProcessor.handleMasterOperation(masterOperation)
 	if err != nil {
 		opProcessor.handleKeyServerError(userOpMap, err)
 		return
@@ -96,43 +100,43 @@ func (opProcessor OperationProcessor) margeEvents(operations []*entity.Operation
 }
 
 // 鍵操作の実行
-func handleMasterOperation(operation entity.OperationType) (entity.KeyServerResponse, error) {
+func (opProcessor OperationProcessor) handleMasterOperation(operation entity.OperationType) (entity.KeyServerResponse, error) {
 
 	isOperating = true
 	var ret entity.KeyServerResponse
 	var err error
 	switch operation {
 	case entity.Open:
-		ret, err = transfer.OpenKey()
+		ret, err = opProcessor.KeyServerTransfer.OpenKey()
 	case entity.Close:
-		ret, err = transfer.CloseKey()
+		ret, err = opProcessor.KeyServerTransfer.CloseKey()
 	case entity.Check:
-		ret, err = transfer.CheckKey()
+		ret, err = opProcessor.KeyServerTransfer.CheckKey()
 	default:
 	}
 	isOperating = false
 	return ret, err
 }
 
-func replyToNotValidUsers(target []*entity.Operation) {
+func (opProcessor OperationProcessor) replyToNotValidUsers(target []*entity.Operation) {
 	for _, op := range target {
 		logger.Info(&logger.LBIF020001, op.UserId)
 		msg := fmt.Sprintf("無効なユーザだよ。↓の文字列を管理者に送って。\n「%s」", op.UserId)
-		transfer.ReplyToToken(msg, op.ReplyToken)
+		opProcessor.LineTransfer.ReplyToToken(msg, op.ReplyToken)
 	}
 }
 
-func replyCheckResult(replyToken string, result entity.KeyStatus) {
+func (opProcessor OperationProcessor) replyCheckResult(replyToken string, result entity.KeyStatus) {
 	if result == entity.KeyStatusOpen {
-		transfer.ReplyToToken("あいてるよ", replyToken)
+		opProcessor.LineTransfer.ReplyToToken("あいてるよ", replyToken)
 	} else {
-		transfer.ReplyToToken("しまってるよ", replyToken)
+		opProcessor.LineTransfer.ReplyToToken("しまってるよ", replyToken)
 	}
 }
 
 func (opProcessor OperationProcessor) replyInOperatingError(op entity.Operation) {
 	go opProcessor.OpHistoryDao.UpdateOperationHistoryWithErrorByOperationId(op.OperationId, entity.InOperatingError)
-	transfer.ReplyToToken("＝＝＝他操作の処理中＝＝＝", op.ReplyToken)
+	opProcessor.LineTransfer.ReplyToToken("＝＝＝他操作の処理中＝＝＝", op.ReplyToken)
 }
 
 func (opProcessor OperationProcessor) handleKeyServerResult(ops map[string]entity.Operation, result entity.KeyServerResponse) {
@@ -144,16 +148,16 @@ func (opProcessor OperationProcessor) handleKeyServerResult(ops map[string]entit
 		go opProcessor.OpHistoryDao.UpdateOperationHistoryByOperationId(o.OperationId, entity.Success)
 		// Check要求なら結果をそのまま返す
 		if o.Operation == entity.Check {
-			replyCheckResult(o.ReplyToken, result.KeyStatus)
+			opProcessor.replyCheckResult(o.ReplyToken, result.KeyStatus)
 		} else {
 			if o.Operation == entity.Open && result.KeyStatus == entity.KeyStatusOpen {
-				transfer.ReplyToToken("→鍵開けたで", o.ReplyToken)
+				opProcessor.LineTransfer.ReplyToToken("→鍵開けたで", o.ReplyToken)
 			} else if o.Operation == entity.Close && result.KeyStatus == entity.KeyStatusClose {
-				transfer.ReplyToToken("→鍵閉めたで", o.ReplyToken)
+				opProcessor.LineTransfer.ReplyToToken("→鍵閉めたで", o.ReplyToken)
 			} else if result.KeyStatus == entity.KeyStatusOpen {
-				transfer.ReplyToToken("→誰かが開けたよ", o.ReplyToken)
+				opProcessor.LineTransfer.ReplyToToken("→誰かが開けたよ", o.ReplyToken)
 			} else {
-				transfer.ReplyToToken("→誰かが閉めたよ", o.ReplyToken)
+				opProcessor.LineTransfer.ReplyToToken("→誰かが閉めたよ", o.ReplyToken)
 			}
 		}
 	}
@@ -170,6 +174,6 @@ func (opProcessor OperationProcessor) handleKeyServerError(ops map[string]entity
 			go opProcessor.OpHistoryDao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerConnectionError)
 			errorResponse = fmt.Sprintf("！！！何が起きたか分からない！！！\nなるちゃんに↓これと一緒に至急連絡\n%s", applicationerror.ResponseParseError.Code)
 		}
-		transfer.ReplyToToken(errorResponse, o.ReplyToken)
+		opProcessor.LineTransfer.ReplyToToken(errorResponse, o.ReplyToken)
 	}
 }

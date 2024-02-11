@@ -1,4 +1,4 @@
-package transfer
+package line
 
 import (
 	"linebot/logger"
@@ -8,25 +8,27 @@ import (
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
 
-var bot *linebot.Client
+type LineTransferImpl struct {
+	bot *linebot.Client
+}
 
-func InitLineBot() {
+func (ltImpl *LineTransferImpl) InitLineBot() {
 	lineBot, err := linebot.New(props.ChannelSecret, props.ChannelToken)
 
 	if err != nil {
 		logger.FatalWithStackTrace(err, &logger.LBFT040004)
 		panic(err)
 	}
-	bot = lineBot
+	ltImpl.bot = lineBot
 }
 
-func ParseLineRequest(r *http.Request) ([]*linebot.Event, error) {
-	return bot.ParseRequest(r)
+func (ltImpl LineTransferImpl) ParseLineRequest(r *http.Request) ([]*linebot.Event, error) {
+	return ltImpl.bot.ParseRequest(r)
 }
 
-func ReplyToToken(resText, replyToken string) error {
+func (ltImpl LineTransferImpl) ReplyToToken(resText, replyToken string) error {
 	logger.Info(&logger.LBIF050001, replyToken, resText)
-	_, err := bot.ReplyMessage(replyToken, linebot.NewTextMessage(resText)).Do()
+	_, err := ltImpl.bot.ReplyMessage(replyToken, linebot.NewTextMessage(resText)).Do()
 	if err != nil {
 		logger.WarnWithStackTrace(err, &logger.LBWR050001, replyToken, resText)
 	}

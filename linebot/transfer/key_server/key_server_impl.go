@@ -1,4 +1,4 @@
-package transfer
+package key_server
 
 import (
 	"encoding/json"
@@ -6,11 +6,14 @@ import (
 	"linebot/applicationerror"
 	"linebot/entity"
 	"linebot/logger"
+	"linebot/props"
 	"net/http"
 	"time"
 
 	"github.com/pkg/errors"
 )
+
+type KeyServerTransferImpl struct{}
 
 func request(path string) (entity.KeyServerResponse, error) {
 	logger.Info(&logger.LBIF040001, path)
@@ -22,7 +25,7 @@ func request(path string) (entity.KeyServerResponse, error) {
 		Timeout: 9 * time.Second,
 	}
 
-	res, err := c.Get("http://192.168.11.200:80/" + path)
+	res, err := c.Get(props.KeyServerURL + path)
 	if err != nil {
 		err = errors.Wrap(err, "Failed connect key server")
 		logger.FatalWithStackTrace(err, &logger.LBFT040001)
@@ -48,14 +51,14 @@ func request(path string) (entity.KeyServerResponse, error) {
 
 	return ret, nil
 }
-func OpenKey() (entity.KeyServerResponse, error) {
+func (kt KeyServerTransferImpl) OpenKey() (entity.KeyServerResponse, error) {
 	return request("open")
 }
 
-func CloseKey() (entity.KeyServerResponse, error) {
+func (kt KeyServerTransferImpl) CloseKey() (entity.KeyServerResponse, error) {
 	return request("close")
 }
 
-func CheckKey() (entity.KeyServerResponse, error) {
+func (kt KeyServerTransferImpl) CheckKey() (entity.KeyServerResponse, error) {
 	return request("check")
 }

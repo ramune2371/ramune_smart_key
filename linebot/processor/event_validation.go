@@ -8,13 +8,13 @@ import (
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
 
-type EventValidation struct {
+type EventValidator struct {
 	UserInfoDao user_info.UserInfoDao
 }
 
 // WebHook Eventsの中身を検証
 // 正常なentity.Operationの配列および、無効なユーザのentity.Operationの配列を返却
-func (eventValidation EventValidation) validateEvent(events []*linebot.Event) ([]*entity.Operation, []*entity.Operation) {
+func (eventValidation EventValidator) validateEvent(events []*linebot.Event) ([]*entity.Operation, []*entity.Operation) {
 
 	allOperation := eventValidation.checkMessage(events)
 	var verifiedOperation []*entity.Operation
@@ -34,7 +34,7 @@ func (eventValidation EventValidation) validateEvent(events []*linebot.Event) ([
 }
 
 // LineBot EventがTextMessageかを検証
-func (eventValidation EventValidation) isTextMessage(e *linebot.Event) bool {
+func (eventValidation EventValidator) isTextMessage(e *linebot.Event) bool {
 
 	tm, ok := e.Message.(*linebot.TextMessage)
 	if !ok {
@@ -45,13 +45,13 @@ func (eventValidation EventValidation) isTextMessage(e *linebot.Event) bool {
 }
 
 // TextMessageの中身が許可されたものかを検証
-func (eventValidation EventValidation) verifyMessageText(text string) bool {
+func (eventValidation EventValidator) verifyMessageText(text string) bool {
 
 	return text != "" && (text == "open" || text == "close" || text == "check")
 }
 
 // Userが有効かを検証
-func (eventValidation EventValidation) verifyUser(userId string) bool {
+func (eventValidation EventValidator) verifyUser(userId string) bool {
 
 	user := eventValidation.UserInfoDao.GetUserByLineId(userId)
 	if user == nil {
@@ -61,7 +61,7 @@ func (eventValidation EventValidation) verifyUser(userId string) bool {
 }
 
 // Eventの配列のうち、Operationとして扱えるもののみを変換した配列を返却
-func (eventValidation EventValidation) checkMessage(events []*linebot.Event) []*entity.Operation {
+func (eventValidation EventValidator) checkMessage(events []*linebot.Event) []*entity.Operation {
 	var allOperation []*entity.Operation
 	for _, e := range events {
 		//(b-1)検証
