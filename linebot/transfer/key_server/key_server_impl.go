@@ -1,31 +1,36 @@
 package key_server
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"linebot/applicationerror"
 	"linebot/entity"
 	"linebot/logger"
 	"linebot/props"
 	"net/http"
-	"time"
 
 	"github.com/pkg/errors"
 )
 
-type KeyServerTransferImpl struct{}
+type HttpClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+type KeyServerTransferImpl struct {
+	client HttpClient
+}
 
-func request(path string) (entity.KeyServerResponse, error) {
+func NewKeyServerTransferImpl(client HttpClient) *KeyServerTransferImpl {
+	return &KeyServerTransferImpl{client}
+}
+
+func (kst KeyServerTransferImpl) Request(path string) (entity.KeyServerResponse, error) {
 	logger.Info(&logger.LBIF040001, path)
-	c := http.Client{
-		Transport: &http.Transport{
-			TLSHandshakeTimeout:   2 * time.Second,
-			ResponseHeaderTimeout: 5 * time.Second,
-		},
-		Timeout: 9 * time.Second,
-	}
-
-	res, err := c.Get(props.KeyServerURL + path)
+	req, _ := http.NewRequest("GET", props.KeyServerURL+path, bytes.NewReader([]byte("")))
+	// res, err := kst.client.Get(props.KeyServerURL + path)
+	res, err := kst.client.Do(req)
+	logger.Debug(fmt.Sprintf("res%v", res))
 	if err != nil {
 		err = errors.Wrap(err, "Failed connect key server")
 		logger.FatalWithStackTrace(err, &logger.LBFT040001)
@@ -51,14 +56,14 @@ func request(path string) (entity.KeyServerResponse, error) {
 
 	return ret, nil
 }
-func (kt KeyServerTransferImpl) OpenKey() (entity.KeyServerResponse, error) {
-	return request("open")
+func (kst KeyServerTransferImpl) OpenKey() (entity.KeyServerResponse, error) {
+	return kst.Request("open")
 }
 
-func (kt KeyServerTransferImpl) CloseKey() (entity.KeyServerResponse, error) {
-	return request("close")
+func (kst KeyServerTransferImpl) CloseKey() (entity.KeyServerResponse, error) {
+	return kst.Request("close")
 }
 
-func (kt KeyServerTransferImpl) CheckKey() (entity.KeyServerResponse, error) {
-	return request("check")
+func (kst KeyServerTransferImpl) CheckKey() (entity.KeyServerResponse, error) {
+	return kst.Request("check")
 }

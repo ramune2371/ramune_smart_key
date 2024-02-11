@@ -9,6 +9,7 @@ import (
 	"linebot/transfer/key_server"
 	"linebot/transfer/line"
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -18,11 +19,19 @@ type LineEventController struct {
 	lineTransfer line.LineTransfer
 }
 
-func (lec *LineEventController) InitController() {
+func NewLineEventController() *LineEventController {
 	// init Transfer
 	lTransfer := new(line.LineTransferImpl)
 	lTransfer.InitLineBot()
-	ksTransfer := key_server.KeyServerTransferImpl{}
+
+	c := http.Client{
+		Transport: &http.Transport{
+			TLSHandshakeTimeout:   2 * time.Second,
+			ResponseHeaderTimeout: 5 * time.Second,
+		},
+		Timeout: 9 * time.Second,
+	}
+	ksTransfer := key_server.NewKeyServerTransferImpl(&c)
 
 	// init DatabaseConnection
 	database := &database.MySQLDatabaseConnection{}
@@ -31,10 +40,10 @@ func (lec *LineEventController) InitController() {
 	uiDao := user_info.UserInfoDaoImpl{Database: database}
 
 	encryptor := security.EncryptorImpl{}
-
+	lec := LineEventController{}
 	lec.opProcessor = processor.OperationProcessor{OpHistoryDao: ohDao, UserInfoDao: uiDao, LineTransfer: lTransfer, KeyServerTransfer: ksTransfer, Encryptor: encryptor}
 	lec.lineTransfer = lTransfer
-
+	return &lec
 }
 
 func (lec *LineEventController) HandleLineAPIRequest(c echo.Context) error {
