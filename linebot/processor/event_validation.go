@@ -4,12 +4,14 @@ import (
 	"linebot/dao/user_info"
 	"linebot/entity"
 	"linebot/logger"
+	"linebot/security"
 
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
 
 type EventValidator struct {
 	UserInfoDao user_info.UserInfoDao
+	Encryptor   security.Encryptor
 }
 
 // WebHook Eventsの中身を検証
@@ -61,23 +63,23 @@ func (eventValidation EventValidator) verifyUser(userId string) bool {
 }
 
 // Eventの配列のうち、Operationとして扱えるもののみを変換した配列を返却
-func (eventValidation EventValidator) checkMessage(events []*linebot.Event) []*entity.Operation {
+func (ev EventValidator) checkMessage(events []*linebot.Event) []*entity.Operation {
 	var allOperation []*entity.Operation
 	for _, e := range events {
 		//(b-1)検証
-		if !eventValidation.isTextMessage(e) {
+		if !ev.isTextMessage(e) {
 			logger.Debug("not Text Message")
 			continue
 		}
 
 		// 前段で型検証は済んでいるので型変換チェックはしない
 		// (b-2)検証
-		if !eventValidation.verifyMessageText(e.Message.(*linebot.TextMessage).Text) {
+		if !ev.verifyMessageText(e.Message.(*linebot.TextMessage).Text) {
 			logger.Debug("not valid message")
 			continue
 		}
 
-		allOperation = append(allOperation, entity.ConvertEventToOperation(e))
+		allOperation = append(allOperation, EventConverterImpl{ev.Encryptor}.ConvertEventToEncryptedOperation(e))
 	}
 
 	return allOperation

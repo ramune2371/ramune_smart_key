@@ -5,6 +5,7 @@ import (
 	"linebot/dao/operation_history"
 	"linebot/dao/user_info"
 	"linebot/processor"
+	"linebot/security"
 	"linebot/transfer/key_server"
 	"linebot/transfer/line"
 	"net/http"
@@ -29,7 +30,9 @@ func (lec *LineEventController) InitController() {
 	ohDao := operation_history.OperationHistoryDaoImpl{Database: database}
 	uiDao := user_info.UserInfoDaoImpl{Database: database}
 
-	lec.opProcessor = processor.OperationProcessor{OpHistoryDao: ohDao, UserInfoDao: uiDao, LineTransfer: lTransfer, KeyServerTransfer: ksTransfer}
+	encryptor := security.EncryptorImpl{}
+
+	lec.opProcessor = processor.OperationProcessor{OpHistoryDao: ohDao, UserInfoDao: uiDao, LineTransfer: lTransfer, KeyServerTransfer: ksTransfer, Encryptor: encryptor}
 	lec.lineTransfer = lTransfer
 
 }

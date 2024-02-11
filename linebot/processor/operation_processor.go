@@ -7,6 +7,7 @@ import (
 	"linebot/dao/user_info"
 	"linebot/entity"
 	"linebot/logger"
+	"linebot/security"
 	"linebot/transfer/key_server"
 	"linebot/transfer/line"
 
@@ -18,12 +19,13 @@ type OperationProcessor struct {
 	UserInfoDao       user_info.UserInfoDao
 	LineTransfer      line.LineTransfer
 	KeyServerTransfer key_server.KeyServerTransfer
+	Encryptor         security.Encryptor
 }
 
 var isOperating bool = false
 
 func (opProcessor OperationProcessor) HandleEvents(events []*linebot.Event) {
-	validator := EventValidator{UserInfoDao: opProcessor.UserInfoDao}
+	validator := EventValidator{UserInfoDao: opProcessor.UserInfoDao, Encryptor: opProcessor.Encryptor}
 	validEvents, notActiveUserEvents := validator.validateEvent(events)
 
 	// 不正ユーザの記録

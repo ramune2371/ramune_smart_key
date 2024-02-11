@@ -1,9 +1,7 @@
 package entity
 
 import (
-	"linebot/security"
-
-	"github.com/line/line-bot-sdk-go/v7/linebot"
+	"fmt"
 )
 
 type OperationType int
@@ -21,25 +19,14 @@ type Operation struct {
 	ReplyToken  string
 }
 
-func TextToOperation(text string) OperationType {
-	switch text {
-	case "open":
-		return Open
-	case "close":
-		return Close
-	case "check":
-		return Check
-	default:
-		return -1
-	}
+func (op Operation) String() string {
+	return fmt.Sprintf("OperationId: %d, UserId:%s, Operation:%+v, ReplyToken:%s", op.OperationId, op.UserId, op.Operation, op.ReplyToken)
 }
 
-// LINE Webhook Eventをentity.Operationに変換&LINE IDをソルト付きハッシュ化
-func ConvertEventToOperation(event *linebot.Event) *Operation {
-	switch message := event.Message.(type) {
-	case *linebot.TextMessage:
-		return &Operation{OperationId: -1, UserId: security.SaltHash(event.Source.UserID), Operation: TextToOperation(message.Text), ReplyToken: event.ReplyToken}
-	default:
-		return nil
-	}
+func (op Operation) IsEqual(target Operation) bool {
+	return op.Operation == target.Operation &&
+		op.OperationId == target.OperationId &&
+		op.ReplyToken == target.ReplyToken &&
+		op.UserId == target.UserId
+
 }
