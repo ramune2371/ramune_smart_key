@@ -15,52 +15,70 @@ import (
 )
 
 type OperationProcessor struct {
-	OpHistoryDao      operation_history.OperationHistoryDao
-	UserInfoDao       user_info.UserInfoDao
-	LineTransfer      line.LineTransfer
-	KeyServerTransfer key_server.KeyServerTransfer
-	Encryptor         security.Encryptor
+	ohDao       operation_history.OperationHistoryDao
+	uiDao       user_info.UserInfoDao
+	lTransfer   line.LineTransfer
+	ksTransfer  key_server.KeyServerTransfer
+	encryptor   security.Encryptor
+	isOperating bool
 }
 
-var isOperating bool = false
+func NewOperationProcessor(ohDao operation_history.OperationHistoryDao, uiDao user_info.UserInfoDao, lTransfer line.LineTransfer, ksTransfer key_server.KeyServerTransfer, encryptor security.Encryptor) *OperationProcessor {
+	op := new(OperationProcessor)
+	op.isOperating = false
+	op.ohDao = ohDao
+	op.uiDao = uiDao
+	op.lTransfer = lTransfer
+	op.ksTransfer = ksTransfer
+	op.encryptor = encryptor
+	return op
+}
 
-func (opProcessor OperationProcessor) HandleEvents(events []*linebot.Event) {
-	validator := EventValidator{UserInfoDao: opProcessor.UserInfoDao, Encryptor: opProcessor.Encryptor}
-	validEvents, notActiveUserEvents := validator.validateEvent(events)
+func (op *OperationProcessor) SetOperating(value bool) {
+	op.isOperating = value
+}
+
+func (op OperationProcessor) IsOperating() bool {
+	return op.isOperating
+}
+
+func (op OperationProcessor) HandleEvents(events []*linebot.Event) {
+	validator := EventValidatorImpl{UserInfoDao: op.uiDao, Encryptor: op.encryptor}
+	validEvents, notActiveUserEvents := validator.ValidateEvent(events)
 
 	// 不正ユーザの記録
 	for _, invalidEvent := range notActiveUserEvents {
-		opProcessor.UserInfoDao.UpsertInvalidUser(invalidEvent.UserId)
+		op.uiDao.UpsertInvalidUser(invalidEvent.UserId)
 	}
 
 	// 有効なユーザのアクセス記録
 	for _, validEvent := range validEvents {
-		opProcessor.UserInfoDao.UpdateUserLastAccess(validEvent.UserId)
+		op.uiDao.UpdateUserLastAccess(validEvent.UserId)
 	}
 
 	// (b-3)返却処理
-	opProcessor.replyToNotValidUsers(notActiveUserEvents)
+	op.replyToNotValidUsers(notActiveUserEvents)
 
 	if len(validEvents) == 0 {
 		return
 	}
 
 	// 後続処理
-	userOpMap, masterOperation := opProcessor.margeEvents(validEvents)
+	userOpMap, masterOperation := op.margeEvents(validEvents)
 
-	if isOperating {
-		for _, op := range userOpMap {
-			opProcessor.replyInOperatingError(op)
+	if op.IsOperating() {
+		for _, operation := range userOpMap {
+			op.replyInOperatingError(operation)
 		}
 		return
 	}
 
-	result, err := opProcessor.handleMasterOperation(masterOperation)
+	result, err := op.handleMasterOperation(masterOperation)
 	if err != nil {
-		opProcessor.handleKeyServerError(userOpMap, err)
+		op.handleKeyServerError(userOpMap, err)
 		return
 	}
-	opProcessor.handleKeyServerResult(userOpMap, result)
+	op.handleKeyServerResult(userOpMap, result)
 }
 
 // ひとつのWebHookに含まれるEventをマージする
@@ -81,16 +99,16 @@ func (opProcessor OperationProcessor) margeEvents(operations []*entity.Operation
 		if exist {
 			if op.Operation == entity.Check {
 				// 非初操作かつ、Checkの場合、CheckをMergedとして記録
-				opProcessor.OpHistoryDao.InsertOperationHistory(op.UserId, op.Operation, entity.Merged)
+				opProcessor.ohDao.InsertOperationHistory(op.UserId, op.Operation, entity.Merged)
 			} else {
 				// 非初操作かつ、Check以外の場合、前回の操作をMergedとして記録、かつ、操作を上書き
-				opProcessor.OpHistoryDao.UpdateOperationHistoryByOperationId(before.OperationId, entity.Merged)
-				record := opProcessor.OpHistoryDao.InsertOperationHistory(op.UserId, op.Operation, entity.Operating)
+				opProcessor.ohDao.UpdateOperationHistoryByOperationId(before.OperationId, entity.Merged)
+				record := opProcessor.ohDao.InsertOperationHistory(op.UserId, op.Operation, entity.Operating)
 				op.OperationId = *record.OperationId
 				userOperations[op.UserId] = *op
 			}
 		} else {
-			record := opProcessor.OpHistoryDao.InsertOperationHistory(op.UserId, op.Operation, entity.Operating)
+			record := opProcessor.ohDao.InsertOperationHistory(op.UserId, op.Operation, entity.Operating)
 			op.OperationId = *record.OperationId
 			userOperations[op.UserId] = *op
 		}
@@ -102,21 +120,21 @@ func (opProcessor OperationProcessor) margeEvents(operations []*entity.Operation
 }
 
 // 鍵操作の実行
-func (opProcessor OperationProcessor) handleMasterOperation(operation entity.OperationType) (entity.KeyServerResponse, error) {
+func (op *OperationProcessor) handleMasterOperation(operation entity.OperationType) (entity.KeyServerResponse, error) {
 
-	isOperating = true
+	op.SetOperating(true)
 	var ret entity.KeyServerResponse
 	var err error
 	switch operation {
 	case entity.Open:
-		ret, err = opProcessor.KeyServerTransfer.OpenKey()
+		ret, err = op.ksTransfer.OpenKey()
 	case entity.Close:
-		ret, err = opProcessor.KeyServerTransfer.CloseKey()
+		ret, err = op.ksTransfer.CloseKey()
 	case entity.Check:
-		ret, err = opProcessor.KeyServerTransfer.CheckKey()
+		ret, err = op.ksTransfer.CheckKey()
 	default:
 	}
-	isOperating = false
+	op.SetOperating(false)
 	return ret, err
 }
 
@@ -124,21 +142,21 @@ func (opProcessor OperationProcessor) replyToNotValidUsers(target []*entity.Oper
 	for _, op := range target {
 		logger.Info(&logger.LBIF020001, op.UserId)
 		msg := fmt.Sprintf("無効なユーザだよ。↓の文字列を管理者に送って。\n「%s」", op.UserId)
-		opProcessor.LineTransfer.ReplyToToken(msg, op.ReplyToken)
+		opProcessor.lTransfer.ReplyToToken(msg, op.ReplyToken)
 	}
 }
 
 func (opProcessor OperationProcessor) replyCheckResult(replyToken string, result entity.KeyStatus) {
 	if result == entity.KeyStatusOpen {
-		opProcessor.LineTransfer.ReplyToToken("あいてるよ", replyToken)
+		opProcessor.lTransfer.ReplyToToken("あいてるよ", replyToken)
 	} else {
-		opProcessor.LineTransfer.ReplyToToken("しまってるよ", replyToken)
+		opProcessor.lTransfer.ReplyToToken("しまってるよ", replyToken)
 	}
 }
 
 func (opProcessor OperationProcessor) replyInOperatingError(op entity.Operation) {
-	go opProcessor.OpHistoryDao.UpdateOperationHistoryWithErrorByOperationId(op.OperationId, entity.InOperatingError)
-	opProcessor.LineTransfer.ReplyToToken("＝＝＝他操作の処理中＝＝＝", op.ReplyToken)
+	go opProcessor.ohDao.UpdateOperationHistoryWithErrorByOperationId(op.OperationId, entity.InOperatingError)
+	opProcessor.lTransfer.ReplyToToken("＝＝＝他操作の処理中＝＝＝", op.ReplyToken)
 }
 
 func (opProcessor OperationProcessor) handleKeyServerResult(ops map[string]entity.Operation, result entity.KeyServerResponse) {
@@ -147,19 +165,19 @@ func (opProcessor OperationProcessor) handleKeyServerResult(ops map[string]entit
 			opProcessor.replyInOperatingError(o)
 			continue
 		}
-		go opProcessor.OpHistoryDao.UpdateOperationHistoryByOperationId(o.OperationId, entity.Success)
+		go opProcessor.ohDao.UpdateOperationHistoryByOperationId(o.OperationId, entity.Success)
 		// Check要求なら結果をそのまま返す
 		if o.Operation == entity.Check {
 			opProcessor.replyCheckResult(o.ReplyToken, result.KeyStatus)
 		} else {
 			if o.Operation == entity.Open && result.KeyStatus == entity.KeyStatusOpen {
-				opProcessor.LineTransfer.ReplyToToken("→鍵開けたで", o.ReplyToken)
+				opProcessor.lTransfer.ReplyToToken("→鍵開けたよ", o.ReplyToken)
 			} else if o.Operation == entity.Close && result.KeyStatus == entity.KeyStatusClose {
-				opProcessor.LineTransfer.ReplyToToken("→鍵閉めたで", o.ReplyToken)
+				opProcessor.lTransfer.ReplyToToken("→鍵閉めたよ", o.ReplyToken)
 			} else if result.KeyStatus == entity.KeyStatusOpen {
-				opProcessor.LineTransfer.ReplyToToken("→誰かが開けたよ", o.ReplyToken)
+				opProcessor.lTransfer.ReplyToToken("→誰かが開けたよ", o.ReplyToken)
 			} else {
-				opProcessor.LineTransfer.ReplyToToken("→誰かが閉めたよ", o.ReplyToken)
+				opProcessor.lTransfer.ReplyToToken("→誰かが閉めたよ", o.ReplyToken)
 			}
 		}
 	}
@@ -170,12 +188,12 @@ func (opProcessor OperationProcessor) handleKeyServerError(ops map[string]entity
 	for _, o := range ops {
 		switch err {
 		case &applicationerror.ConnectionError:
-			go opProcessor.OpHistoryDao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerConnectionError)
+			go opProcessor.ohDao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerConnectionError)
 			errorResponse = "＜＜鍵サーバとの通信に失敗した＞＞\nなるちゃんに連絡して!"
 		case &applicationerror.ResponseParseError:
-			go opProcessor.OpHistoryDao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerConnectionError)
+			go opProcessor.ohDao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerConnectionError)
 			errorResponse = fmt.Sprintf("！！！何が起きたか分からない！！！\nなるちゃんに↓これと一緒に至急連絡\n%s", applicationerror.ResponseParseError.Code)
 		}
-		opProcessor.LineTransfer.ReplyToToken(errorResponse, o.ReplyToken)
+		opProcessor.lTransfer.ReplyToToken(errorResponse, o.ReplyToken)
 	}
 }

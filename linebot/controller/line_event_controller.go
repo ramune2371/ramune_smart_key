@@ -1,10 +1,13 @@
 package controller
 
 import (
+	"fmt"
 	"linebot/dao/database"
 	"linebot/dao/operation_history"
 	"linebot/dao/user_info"
+	"linebot/logger"
 	"linebot/processor"
+	"linebot/props"
 	"linebot/security"
 	"linebot/transfer/key_server"
 	"linebot/transfer/line"
@@ -12,17 +15,23 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
 
 type LineEventController struct {
-	opProcessor  processor.OperationProcessor
+	opProcessor  *processor.OperationProcessor
 	lineTransfer line.LineTransfer
 }
 
 func NewLineEventController() *LineEventController {
 	// init Transfer
-	lTransfer := new(line.LineTransferImpl)
-	lTransfer.InitLineBot()
+	lineBot, err := linebot.New(props.ChannelSecret, props.ChannelToken)
+
+	if err != nil {
+		logger.FatalWithStackTrace(err, &logger.LBFT040004)
+		panic(err)
+	}
+	lTransfer := line.NewLineTransfer(lineBot)
 
 	c := http.Client{
 		Transport: &http.Transport{
@@ -41,14 +50,21 @@ func NewLineEventController() *LineEventController {
 
 	encryptor := security.EncryptorImpl{}
 	lec := LineEventController{}
-	lec.opProcessor = processor.OperationProcessor{OpHistoryDao: ohDao, UserInfoDao: uiDao, LineTransfer: lTransfer, KeyServerTransfer: ksTransfer, Encryptor: encryptor}
+	lec.opProcessor = processor.NewOperationProcessor(
+		ohDao,
+		uiDao,
+		lTransfer,
+		ksTransfer,
+		encryptor,
+	)
 	lec.lineTransfer = lTransfer
 	return &lec
 }
 
 func (lec *LineEventController) HandleLineAPIRequest(c echo.Context) error {
-	events, err := lec.lineTransfer.ParseLineRequest(c.Request())
+	events, err := linebot.ParseRequest(props.ChannelSecret, c.Request())
 	if err != nil {
+		fmt.Printf("koko↑\n\terr:%+v\n", err)
 		return c.NoContent(http.StatusBadRequest)
 	}
 	lec.opProcessor.HandleEvents(events)

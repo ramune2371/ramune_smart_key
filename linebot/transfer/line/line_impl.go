@@ -2,8 +2,6 @@ package line
 
 import (
 	"linebot/logger"
-	"linebot/props"
-	"net/http"
 
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
@@ -12,18 +10,10 @@ type LineTransferImpl struct {
 	bot *linebot.Client
 }
 
-func (ltImpl *LineTransferImpl) InitLineBot() {
-	lineBot, err := linebot.New(props.ChannelSecret, props.ChannelToken)
-
-	if err != nil {
-		logger.FatalWithStackTrace(err, &logger.LBFT040004)
-		panic(err)
-	}
-	ltImpl.bot = lineBot
-}
-
-func (ltImpl LineTransferImpl) ParseLineRequest(r *http.Request) ([]*linebot.Event, error) {
-	return ltImpl.bot.ParseRequest(r)
+func NewLineTransfer(bot *linebot.Client) *LineTransferImpl {
+	ltImpl := new(LineTransferImpl)
+	ltImpl.bot = bot
+	return ltImpl
 }
 
 func (ltImpl LineTransferImpl) ReplyToToken(resText, replyToken string) error {

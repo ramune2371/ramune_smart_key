@@ -11,7 +11,6 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"github.com/line/line-bot-sdk-go/v7/linebot"
 	"github.com/pkg/errors"
 )
 
@@ -51,12 +50,4 @@ func VerifyLineSignature(next echo.HandlerFunc) echo.HandlerFunc {
 		logger.Info(&logger.LBIF010002)
 		return next(c)
 	}
-}
-
-func VerifyLineWebHookEvent(e linebot.Event) bool {
-
-	if e.Type != linebot.EventTypeMessage || e.Message.Type() != linebot.MessageTypeText {
-		return false
-	}
-	return true
 }

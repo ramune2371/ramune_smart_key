@@ -31,7 +31,7 @@ func TestIsTextMessage(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockUserInfoDao := mock_user_info.NewMockUserInfoDao(ctrl)
-	validator := EventValidator{UserInfoDao: mockUserInfoDao}
+	validator := EventValidatorImpl{UserInfoDao: mockUserInfoDao}
 
 	tests := []struct {
 		description string
@@ -127,7 +127,7 @@ func TestIsTextMessage(t *testing.T) {
 func TestVerifyMessageText(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockUserInfoDao := mock_user_info.NewMockUserInfoDao(ctrl)
-	validator := EventValidator{UserInfoDao: mockUserInfoDao}
+	validator := EventValidatorImpl{UserInfoDao: mockUserInfoDao}
 
 	tests := []struct {
 		description string
@@ -224,7 +224,7 @@ func TestVerifyUser(t *testing.T) {
 	mockUserInfoDao.EXPECT().GetUserByLineId("invalid_user").Return(&InvalidUser)
 	mockUserInfoDao.EXPECT().GetUserByLineId("null_user").Return(nil)
 
-	validator := EventValidator{
+	validator := EventValidatorImpl{
 		UserInfoDao: mockUserInfoDao,
 	}
 
@@ -273,7 +273,7 @@ func TestCheckMessage(t *testing.T) {
 			return value
 		},
 	).AnyTimes()
-	validator := EventValidator{UserInfoDao: mockUserInfoDao, Encryptor: mockEncryptor}
+	validator := EventValidatorImpl{UserInfoDao: mockUserInfoDao, Encryptor: mockEncryptor}
 
 	openEvent := createTextMessage("open", "openUser", "openToken")
 	openEvent2 := createTextMessage("open", "openUser2", "openToken2")
@@ -372,7 +372,7 @@ func TestValidateEvent(t *testing.T) {
 	mockUserInfoDao.EXPECT().GetUserByLineId("invalid").Return(&invalidUser).AnyTimes()
 	mockEncryptor := mock_security.NewMockEncryptor(ctrl)
 	mockEncryptor.EXPECT().SaltHash(gomock.Any()).DoAndReturn(func(value string) string { return value }).AnyTimes()
-	validator := EventValidator{UserInfoDao: mockUserInfoDao, Encryptor: mockEncryptor}
+	validator := EventValidatorImpl{UserInfoDao: mockUserInfoDao, Encryptor: mockEncryptor}
 
 	openValidUserEvent := createTextMessage("open", "valid", "openValidToken")
 	closeValidUserEvent := createTextMessage("close", "valid", "closeValidToken")
@@ -419,7 +419,7 @@ func TestValidateEvent(t *testing.T) {
 	}
 
 	// テスト実行
-	validRets, invalidRets := validator.validateEvent(target)
+	validRets, invalidRets := validator.ValidateEvent(target)
 
 	// length check
 	if len(validRets) != len(expectValidOperations) {
