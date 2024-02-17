@@ -164,7 +164,7 @@ func TestOperationProcessor_HandleEvents(t *testing.T) {
 					MockEncryptor{},
 				)
 				// HandleEventsを呼び出す
-				opProcessor.SetOperating(false)
+				opProcessor.SetIsOperating(false)
 				opProcessor.HandleEvents(targetEvents)
 			}
 		})
@@ -197,7 +197,7 @@ func TestOperationProcessor_HandleEvents(t *testing.T) {
 					MockEncryptor{},
 				)
 				// HandleEventsを呼び出す
-				opProcessor.SetOperating(false)
+				opProcessor.SetIsOperating(false)
 				opProcessor.HandleEvents(targetEvents)
 			}
 		})
@@ -233,7 +233,7 @@ func TestOperationProcessor_HandleEvents(t *testing.T) {
 					MockEncryptor{},
 				)
 				// HandleEventsを呼び出す
-				opProcessor.SetOperating(true)
+				opProcessor.SetIsOperating(true)
 				opProcessor.HandleEvents(targetEvents)
 			}
 		})
@@ -266,7 +266,7 @@ func TestOperationProcessor_HandleEvents(t *testing.T) {
 					MockEncryptor{},
 				)
 				// HandleEventsを呼び出す
-				opProcessor.SetOperating(true)
+				opProcessor.SetIsOperating(true)
 				opProcessor.HandleEvents(targetEvents)
 			}
 		})
@@ -311,7 +311,7 @@ func TestOperationProcessor_HandleEvents(t *testing.T) {
 					MockEncryptor{},
 				)
 				// HandleEventsを呼び出す
-				opProcessor.SetOperating(false)
+				opProcessor.SetIsOperating(false)
 				opProcessor.HandleEvents(targetEvents)
 			}
 		}

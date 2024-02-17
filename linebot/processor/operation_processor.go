@@ -10,6 +10,7 @@ import (
 	"linebot/security"
 	"linebot/transfer/key_server"
 	"linebot/transfer/line"
+	"sync"
 
 	"github.com/line/line-bot-sdk-go/v7/linebot"
 )
@@ -21,6 +22,7 @@ type OperationProcessor struct {
 	ksTransfer  key_server.KeyServerTransfer
 	encryptor   security.Encryptor
 	isOperating bool
+	mutex       sync.Mutex
 }
 
 func NewOperationProcessor(ohDao operation_history.OperationHistoryDao, uiDao user_info.UserInfoDao, lTransfer line.LineTransfer, ksTransfer key_server.KeyServerTransfer, encryptor security.Encryptor) *OperationProcessor {
@@ -34,15 +36,19 @@ func NewOperationProcessor(ohDao operation_history.OperationHistoryDao, uiDao us
 	return op
 }
 
-func (op *OperationProcessor) SetOperating(value bool) {
+func (op *OperationProcessor) SetIsOperating(value bool) {
+	op.mutex.Lock()
+	defer op.mutex.Unlock()
 	op.isOperating = value
 }
 
-func (op OperationProcessor) IsOperating() bool {
+func (op *OperationProcessor) IsOperating() bool {
+	op.mutex.Lock()
+	defer op.mutex.Unlock()
 	return op.isOperating
 }
 
-func (op OperationProcessor) HandleEvents(events []*linebot.Event) {
+func (op *OperationProcessor) HandleEvents(events []*linebot.Event) {
 	validator := EventValidatorImpl{UserInfoDao: op.uiDao, Encryptor: op.encryptor}
 	validEvents, notActiveUserEvents := validator.ValidateEvent(events)
 
@@ -83,7 +89,7 @@ func (op OperationProcessor) HandleEvents(events []*linebot.Event) {
 
 // ひとつのWebHookに含まれるEventをマージする
 // ユーザ単位のマージ結果と、全体のマージ結果を返却
-func (opProcessor OperationProcessor) margeEvents(operations []*entity.Operation) (map[string]entity.Operation, entity.OperationType) {
+func (opProcessor *OperationProcessor) margeEvents(operations []*entity.Operation) (map[string]entity.Operation, entity.OperationType) {
 	// key: lineId
 	userOperations := map[string]entity.Operation{}
 	// defaultではCheckを詰めておく
@@ -122,7 +128,7 @@ func (opProcessor OperationProcessor) margeEvents(operations []*entity.Operation
 // 鍵操作の実行
 func (op *OperationProcessor) handleMasterOperation(operation entity.OperationType) (entity.KeyServerResponse, error) {
 
-	op.SetOperating(true)
+	op.SetIsOperating(true)
 	var ret entity.KeyServerResponse
 	var err error
 	switch operation {
@@ -134,11 +140,11 @@ func (op *OperationProcessor) handleMasterOperation(operation entity.OperationTy
 		ret, err = op.ksTransfer.CheckKey()
 	default:
 	}
-	op.SetOperating(false)
+	op.SetIsOperating(false)
 	return ret, err
 }
 
-func (opProcessor OperationProcessor) replyToNotValidUsers(target []*entity.Operation) {
+func (opProcessor *OperationProcessor) replyToNotValidUsers(target []*entity.Operation) {
 	for _, op := range target {
 		logger.Info(&logger.LBIF020001, op.UserId)
 		msg := fmt.Sprintf("無効なユーザだよ。↓の文字列を管理者に送って。\n「%s」", op.UserId)
@@ -146,7 +152,7 @@ func (opProcessor OperationProcessor) replyToNotValidUsers(target []*entity.Oper
 	}
 }
 
-func (opProcessor OperationProcessor) replyCheckResult(replyToken string, result entity.KeyStatus) {
+func (opProcessor *OperationProcessor) replyCheckResult(replyToken string, result entity.KeyStatus) {
 	if result == entity.KeyStatusOpen {
 		opProcessor.lTransfer.ReplyToToken("あいてるよ", replyToken)
 	} else {
@@ -154,12 +160,12 @@ func (opProcessor OperationProcessor) replyCheckResult(replyToken string, result
 	}
 }
 
-func (opProcessor OperationProcessor) replyInOperatingError(op entity.Operation) {
+func (opProcessor *OperationProcessor) replyInOperatingError(op entity.Operation) {
 	go opProcessor.ohDao.UpdateOperationHistoryWithErrorByOperationId(op.OperationId, entity.InOperatingError)
 	opProcessor.lTransfer.ReplyToToken("＝＝＝他操作の処理中＝＝＝", op.ReplyToken)
 }
 
-func (opProcessor OperationProcessor) handleKeyServerResult(ops map[string]entity.Operation, result entity.KeyServerResponse) {
+func (opProcessor *OperationProcessor) handleKeyServerResult(ops map[string]entity.Operation, result entity.KeyServerResponse) {
 	for _, o := range ops {
 		if result.OperationStatus == entity.OperationAnother {
 			opProcessor.replyInOperatingError(o)
@@ -183,7 +189,7 @@ func (opProcessor OperationProcessor) handleKeyServerResult(ops map[string]entit
 	}
 }
 
-func (opProcessor OperationProcessor) handleKeyServerError(ops map[string]entity.Operation, err error) {
+func (opProcessor *OperationProcessor) handleKeyServerError(ops map[string]entity.Operation, err error) {
 	errorResponse := "エラーが起きてる！\nこのメッセージ見たらなるちゃんに「鍵のエラーハンドリングバグってるよ!」と連絡！"
 	for _, o := range ops {
 		switch err {
