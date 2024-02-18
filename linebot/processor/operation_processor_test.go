@@ -481,7 +481,7 @@ func TestHandleMergeEvents(t *testing.T) {
 				createMockKeyServerTransfer("open", t, ctrl, entity.KeyServerResponse{}, nil),
 				MockEncryptor{},
 			)
-			ops, masterOp := op.margeEvents(test.targetEvents)
+			ops, masterOp := op.mergeEvents(test.targetEvents)
 
 			for k, o := range ops {
 				if test.expectOperations[k] != o {

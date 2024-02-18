@@ -16,15 +16,18 @@ import (
 )
 
 type OperationProcessor struct {
-	ohDao       operation_history.OperationHistoryDao
-	uiDao       user_info.UserInfoDao
-	lTransfer   line.LineTransfer
-	ksTransfer  key_server.KeyServerTransfer
-	encryptor   security.Encryptor
+	ohDao      operation_history.OperationHistoryDao
+	uiDao      user_info.UserInfoDao
+	lTransfer  line.LineTransfer
+	ksTransfer key_server.KeyServerTransfer
+	encryptor  security.Encryptor
+	// 操作中判定フラグ(true:操作中, false:非操作中)
 	isOperating bool
-	mutex       sync.Mutex
+	// 操作中判定フラグのスレッドセーフ処理用
+	mutex sync.Mutex
 }
 
+// OperationProcessorコンストラクタ
 func NewOperationProcessor(ohDao operation_history.OperationHistoryDao, uiDao user_info.UserInfoDao, lTransfer line.LineTransfer, ksTransfer key_server.KeyServerTransfer, encryptor security.Encryptor) *OperationProcessor {
 	op := new(OperationProcessor)
 	op.isOperating = false
@@ -36,41 +39,79 @@ func NewOperationProcessor(ohDao operation_history.OperationHistoryDao, uiDao us
 	return op
 }
 
+/*
+isOperationを設定
+
+args: 設定する値(true:操作中, false:非操作中)
+*/
 func (op *OperationProcessor) SetIsOperating(value bool) {
 	op.mutex.Lock()
 	defer op.mutex.Unlock()
 	op.isOperating = value
 }
 
+/*
+isOperationの値を取得
+
+return: true:操作中, false:非操作中
+*/
 func (op *OperationProcessor) IsOperating() bool {
 	op.mutex.Lock()
 	defer op.mutex.Unlock()
 	return op.isOperating
 }
 
+/*
+linebot.Eventを処理
+
+args: events 処理対象のlinebot.Eventのポインタ配列
+*/
 func (op *OperationProcessor) HandleEvents(events []*linebot.Event) {
 	validator := EventValidatorImpl{UserInfoDao: op.uiDao, Encryptor: op.encryptor}
-	validEvents, notActiveUserEvents := validator.ValidateEvent(events)
+	validEvents, invalidEvents := validator.ValidateEvent(events)
 
+	if len(invalidEvents) != 0 {
+		op.handleInvalidUserEvents(invalidEvents)
+	}
+
+	if len(validEvents) != 0 {
+		op.handleValidUserEvents(validEvents)
+	}
+
+}
+
+/*
+無効なユーザからの操作を処理
+
+ユーザの記録及び、ラインへの返答を実施
+
+args: invalidUserEvents 処理対象のOperationのポインタ配列
+*/
+func (op *OperationProcessor) handleInvalidUserEvents(invalidUserEvents []*entity.Operation) {
 	// 不正ユーザの記録
-	for _, invalidEvent := range notActiveUserEvents {
+	for _, invalidEvent := range invalidUserEvents {
 		op.uiDao.UpsertInvalidUser(invalidEvent.UserId)
 	}
 
+	// (b-3)返却処理
+	op.replyToNotValidUsers(invalidUserEvents)
+}
+
+/*
+有効なユーザからの操作を処理
+
+ユーザの記録及び、ラインへの返答を実施
+
+args: validUserEvents 処理対象のOperationのポインタ配列
+*/
+func (op *OperationProcessor) handleValidUserEvents(validEvents []*entity.Operation) {
 	// 有効なユーザのアクセス記録
 	for _, validEvent := range validEvents {
 		op.uiDao.UpdateUserLastAccess(validEvent.UserId)
 	}
 
-	// (b-3)返却処理
-	op.replyToNotValidUsers(notActiveUserEvents)
-
-	if len(validEvents) == 0 {
-		return
-	}
-
 	// 後続処理
-	userOpMap, masterOperation := op.margeEvents(validEvents)
+	userOpMap, masterOperation := op.mergeEvents(validEvents)
 
 	if op.IsOperating() {
 		for _, operation := range userOpMap {
@@ -87,9 +128,13 @@ func (op *OperationProcessor) HandleEvents(events []*linebot.Event) {
 	op.handleKeyServerResult(userOpMap, result)
 }
 
-// ひとつのWebHookに含まれるEventをマージする
-// ユーザ単位のマージ結果と、全体のマージ結果を返却
-func (opProcessor *OperationProcessor) margeEvents(operations []*entity.Operation) (map[string]entity.Operation, entity.OperationType) {
+/*
+ひとつのWebHookに含まれるEventをマージする
+
+args: operations 全ての操作要求
+return: ユーザ単位の操作要求のマージ結果(key:UserId,value:Operation), 全体での操作要求のマージ結果
+*/
+func (opProcessor *OperationProcessor) mergeEvents(operations []*entity.Operation) (map[string]entity.Operation, entity.OperationType) {
 	// key: lineId
 	userOperations := map[string]entity.Operation{}
 	// defaultではCheckを詰めておく
@@ -125,7 +170,12 @@ func (opProcessor *OperationProcessor) margeEvents(operations []*entity.Operatio
 	return userOperations, lastOperation
 }
 
-// 鍵操作の実行
+/*
+鍵操作の実行
+
+args: operation ユーザ全体の操作要求をマージした操作種別
+return: 鍵サーバのレスポンス, error
+*/
 func (op *OperationProcessor) handleMasterOperation(operation entity.OperationType) (entity.KeyServerResponse, error) {
 
 	op.SetIsOperating(true)
@@ -144,6 +194,11 @@ func (op *OperationProcessor) handleMasterOperation(operation entity.OperationTy
 	return ret, err
 }
 
+/*
+不正なユーザへの返信処理
+
+args: target 返信対象のentity.Operationのポインタ配列
+*/
 func (opProcessor *OperationProcessor) replyToNotValidUsers(target []*entity.Operation) {
 	for _, op := range target {
 		logger.Info(&logger.LBIF020001, op.UserId)
@@ -152,6 +207,11 @@ func (opProcessor *OperationProcessor) replyToNotValidUsers(target []*entity.Ope
 	}
 }
 
+/*
+Check要求への応答処理
+
+args: replyToken 返信対象のReplyToken, result 鍵の状態
+*/
 func (opProcessor *OperationProcessor) replyCheckResult(replyToken string, result entity.KeyStatus) {
 	if result == entity.KeyStatusOpen {
 		opProcessor.lTransfer.ReplyToToken("あいてるよ", replyToken)
@@ -160,11 +220,21 @@ func (opProcessor *OperationProcessor) replyCheckResult(replyToken string, resul
 	}
 }
 
+/*
+操作中エラーのライン応答
+
+args: op 応答対象のOperation
+*/
 func (opProcessor *OperationProcessor) replyInOperatingError(op entity.Operation) {
 	go opProcessor.ohDao.UpdateOperationHistoryWithErrorByOperationId(op.OperationId, entity.InOperatingError)
 	opProcessor.lTransfer.ReplyToToken("＝＝＝他操作の処理中＝＝＝", op.ReplyToken)
 }
 
+/*
+鍵サーバからの応答に応じてユーザからの操作要求へ返信
+
+args: ops ユーザごとのマージ後の操作要求, result 鍵サーバからのレスポンス
+*/
 func (opProcessor *OperationProcessor) handleKeyServerResult(ops map[string]entity.Operation, result entity.KeyServerResponse) {
 	for _, o := range ops {
 		if result.OperationStatus == entity.OperationAnother {
@@ -189,6 +259,11 @@ func (opProcessor *OperationProcessor) handleKeyServerResult(ops map[string]enti
 	}
 }
 
+/*
+鍵サーバ接続時のエラーを処理
+
+args: ops ユーザごとのマージ後の操作要求, err 鍵サーバ接続時のエラー
+*/
 func (opProcessor *OperationProcessor) handleKeyServerError(ops map[string]entity.Operation, err error) {
 	errorResponse := "エラーが起きてる！\nこのメッセージ見たらなるちゃんに「鍵のエラーハンドリングバグってるよ!」と連絡！"
 	for _, o := range ops {
