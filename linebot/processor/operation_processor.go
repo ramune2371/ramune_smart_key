@@ -29,7 +29,7 @@ type OperationProcessor struct {
 
 // OperationProcessorコンストラクタ
 func NewOperationProcessor(ohDao operation_history.OperationHistoryDao, uiDao user_info.UserInfoDao, lTransfer line.LineTransfer, ksTransfer key_server.KeyServerTransfer, encryptor security.Encryptor) *OperationProcessor {
-	op := new(OperationProcessor)
+	op := &OperationProcessor{}
 	op.isOperating = false
 	op.ohDao = ohDao
 	op.uiDao = uiDao
