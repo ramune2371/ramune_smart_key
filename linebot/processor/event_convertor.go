@@ -24,7 +24,7 @@ func TextToOperation(text string) entity.OperationType {
 	case "check":
 		return entity.Check
 	default:
-		return -1
+		return entity.Unsupported
 	}
 }
 
@@ -33,10 +33,15 @@ func (ec EventConverterImpl) ConvertEventToEncryptedOperation(event *linebot.Eve
 	switch message := event.Message.(type) {
 	case *linebot.TextMessage:
 		opType := TextToOperation(message.Text)
-		if opType == -1 {
+		if opType == entity.Unsupported {
 			return nil
 		}
-		return &entity.Operation{OperationId: -1, UserId: ec.Encryptor.SaltHash(event.Source.UserID), Operation: opType, ReplyToken: event.ReplyToken}
+		return &entity.Operation{
+			OperationId: -1,
+			UserId:      ec.Encryptor.SaltHash(event.Source.UserID),
+			Operation:   opType,
+			ReplyToken:  event.ReplyToken,
+		}
 	default:
 		return nil
 	}

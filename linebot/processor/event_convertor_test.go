@@ -35,12 +35,12 @@ func TestTextToOperation(t *testing.T) {
 		{
 			description: "invalid (not empty)",
 			text:        "fizz",
-			expect:      -1,
+			expect:      entity.Unsupported,
 		},
 		{
 			description: "invalid (empty)",
 			text:        "",
-			expect:      -1,
+			expect:      entity.Unsupported,
 		},
 	}
 

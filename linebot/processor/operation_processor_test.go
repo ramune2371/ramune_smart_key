@@ -494,8 +494,6 @@ func TestHandleMasterOperation(t *testing.T) {
 	tests := []struct {
 		description string
 		target      entity.OperationType
-		expectRet   entity.KeyServerResponse
-		expectErr   error
 	}{
 		{
 			description: "open",
@@ -508,6 +506,10 @@ func TestHandleMasterOperation(t *testing.T) {
 		{
 			description: "check",
 			target:      entity.Check,
+		},
+		{
+			description: "unsupported",
+			target:      entity.Unsupported,
 		},
 	}
 

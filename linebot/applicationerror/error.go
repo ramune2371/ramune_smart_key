@@ -7,13 +7,14 @@ type ApplicationError struct {
 	Message string
 }
 
-func (e *ApplicationError) Error() string { return e.Message }
+func (e ApplicationError) Error() string { return e.Message }
 
-func (e *ApplicationError) ApplicationError() bool {
+func (e ApplicationError) ApplicationError() bool {
 	return true
 }
 
 var (
-	ConnectionError    = ApplicationError{Code: "101", Message: "Failed connection"}
-	ResponseParseError = ApplicationError{Code: "102", Message: "Failed parse response"}
+	ConnectionError           = ApplicationError{Code: "101", Message: "Failed connection"}
+	ResponseParseError        = ApplicationError{Code: "102", Message: "Failed parse response"}
+	UnsupportedOperationError = ApplicationError{Code: "302", Message: "Unsupported Operation Type"}
 )

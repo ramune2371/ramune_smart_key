@@ -179,6 +179,8 @@ return: 鍵サーバのレスポンス, error
 func (op *OperationProcessor) handleMasterOperation(operation entity.OperationType) (entity.KeyServerResponse, error) {
 
 	op.SetIsOperating(true)
+	defer op.SetIsOperating(false)
+
 	var ret entity.KeyServerResponse
 	var err error
 	switch operation {
@@ -189,8 +191,8 @@ func (op *OperationProcessor) handleMasterOperation(operation entity.OperationTy
 	case entity.Check:
 		ret, err = op.ksTransfer.CheckKey()
 	default:
+		err = applicationerror.UnsupportedOperationError
 	}
-	op.SetIsOperating(false)
 	return ret, err
 }
 
@@ -274,6 +276,8 @@ func (opProcessor *OperationProcessor) handleKeyServerError(ops map[string]entit
 		case &applicationerror.ResponseParseError:
 			go opProcessor.ohDao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerResponseError)
 			errorResponse = fmt.Sprintf("！！！何が起きたか分からない！！！\nなるちゃんに↓これと一緒に至急連絡\n%s", applicationerror.ResponseParseError.Code)
+		default:
+			errorResponse = "不正な操作！どうやってここまで辿り着いた？？"
 		}
 		opProcessor.lTransfer.ReplyToToken(errorResponse, o.ReplyToken)
 	}

@@ -7,9 +7,10 @@ import (
 type OperationType int
 
 const (
-	Open  OperationType = 0
-	Close OperationType = 1
-	Check OperationType = 2
+	Unsupported OperationType = -1
+	Open        OperationType = 0
+	Close       OperationType = 1
+	Check       OperationType = 2
 )
 
 type Operation struct {
