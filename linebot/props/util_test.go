@@ -80,7 +80,9 @@ func TestMain(t *testing.T) {
 				if props.Salt != test.expect["SALT"] {
 					t.Errorf("SALT:"+testutil.STRING_TEST_MSG_FMT, "", test.expect["SALT"], props.Salt)
 				}
-
+				for k := range test.target {
+					t.Setenv(k, "")
+				}
 			})
 		}
 
@@ -95,6 +97,7 @@ func TestMain(t *testing.T) {
 			}
 			t.Setenv("KEY_SERVER_URL", "fizz")
 			props.LoadEnv()
+			t.Setenv("KEY_SERVER_URL", "")
 		})
 	})
 
@@ -151,6 +154,7 @@ func TestMain(t *testing.T) {
 					if props.IsSignatureCheck != test.expect["SIGNATURE_CHECK"] {
 						t.Errorf(testutil.BOOL_TEST_MSG_FMT, test.description, test.expect["SIGNATURE_CHECK"], props.IsSignatureCheck)
 					}
+					t.Setenv(k, "")
 				}
 			})
 		}
