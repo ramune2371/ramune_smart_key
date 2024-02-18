@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"fmt"
 	"linebot/dao/user_info"
 	"linebot/entity"
 	"linebot/logger"
@@ -41,7 +42,7 @@ func (eventValidation EventValidatorImpl) ValidateEvent(events []*linebot.Event)
 		lineId := op.UserId
 		// (b-3)検証
 		if !eventValidation.verifyUser(lineId) {
-			logger.Debug("not valid user")
+			logger.Debug(fmt.Sprintf("not valid user: %s", lineId))
 			notActiveUserOperation = append(notActiveUserOperation, op)
 			continue
 		}
@@ -71,7 +72,11 @@ func (eventValidation EventValidatorImpl) verifyMessageText(text string) bool {
 func (eventValidation EventValidatorImpl) verifyUser(userId string) bool {
 
 	user, err := eventValidation.userInfoDao.GetUserByLineId(userId)
-	if user == nil || err != nil {
+	if err != nil {
+		return false
+	}
+	if user == nil {
+		logger.Info(logger.LBIF020002, userId)
 		return false
 	}
 	return user.Active

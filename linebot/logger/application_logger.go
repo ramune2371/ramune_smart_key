@@ -33,6 +33,8 @@ var (
 	LBIF010002 = newApplicationLog("LBIF010002", "WebHookの署名の検証に成功しました")
 	// 不正なユーザからのリクエスト受信
 	LBIF020001 = newApplicationLog("LBIF020001", "不正なユーザからのリクエストです。userId:%s")
+	// 不明なユーザからのリクエスト受信
+	LBIF020002 = newApplicationLog("LBIF020002", "不明なユーザからのリクエストです。userId:%s")
 	// 鍵サーバへの接続{path}
 	LBIF040001 = newApplicationLog("LBIF040001", "鍵サーバに接続します、%s")
 	// 鍵サーバからレスポンス受信(response)
