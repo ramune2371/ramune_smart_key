@@ -6,6 +6,7 @@ import (
 	"linebot/dao/operation_history"
 	"linebot/dao/user_info"
 	"linebot/entity"
+	"linebot/entity/message"
 	"linebot/logger"
 	"linebot/security"
 	"linebot/transfer/key_server"
@@ -216,9 +217,9 @@ args: replyToken 返信対象のReplyToken, result 鍵の状態
 */
 func (opProcessor *OperationProcessor) replyCheckResult(replyToken string, result entity.KeyStatus) {
 	if result == entity.KeyStatusOpen {
-		opProcessor.lTransfer.ReplyToToken("あいてるよ", replyToken)
+		opProcessor.lTransfer.ReplyToToken(message.CHECK_OPEN, replyToken)
 	} else {
-		opProcessor.lTransfer.ReplyToToken("しまってるよ", replyToken)
+		opProcessor.lTransfer.ReplyToToken(message.CHECK_CLOSE, replyToken)
 	}
 }
 
@@ -229,7 +230,7 @@ args: op 応答対象のOperation
 */
 func (opProcessor *OperationProcessor) replyInOperatingError(op entity.Operation) {
 	go opProcessor.ohDao.UpdateOperationHistoryWithErrorByOperationId(op.OperationId, entity.InOperatingError)
-	opProcessor.lTransfer.ReplyToToken("＝＝＝他操作の処理中＝＝＝", op.ReplyToken)
+	opProcessor.lTransfer.ReplyToToken(message.ANOTHER_OPERATING, op.ReplyToken)
 }
 
 /*
@@ -249,13 +250,13 @@ func (opProcessor *OperationProcessor) handleKeyServerResult(ops map[string]enti
 			opProcessor.replyCheckResult(o.ReplyToken, result.KeyStatus)
 		} else {
 			if o.Operation == entity.Open && result.KeyStatus == entity.KeyStatusOpen {
-				opProcessor.lTransfer.ReplyToToken("→鍵開けたよ", o.ReplyToken)
+				opProcessor.lTransfer.ReplyToToken(message.SUCCESS_OPEN, o.ReplyToken)
 			} else if o.Operation == entity.Close && result.KeyStatus == entity.KeyStatusClose {
-				opProcessor.lTransfer.ReplyToToken("→鍵閉めたよ", o.ReplyToken)
+				opProcessor.lTransfer.ReplyToToken(message.SUCCESS_CLOSE, o.ReplyToken)
 			} else if result.KeyStatus == entity.KeyStatusOpen {
-				opProcessor.lTransfer.ReplyToToken("→誰かが開けたよ", o.ReplyToken)
+				opProcessor.lTransfer.ReplyToToken(message.ANOTHER_OPEN, o.ReplyToken)
 			} else {
-				opProcessor.lTransfer.ReplyToToken("→誰かが閉めたよ", o.ReplyToken)
+				opProcessor.lTransfer.ReplyToToken(message.ANOTHER_CLOSE, o.ReplyToken)
 			}
 		}
 	}
@@ -272,10 +273,10 @@ func (opProcessor *OperationProcessor) handleKeyServerError(ops map[string]entit
 		switch err {
 		case applicationerror.ConnectionError:
 			go opProcessor.ohDao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerConnectionError)
-			errorResponse = "＜＜鍵サーバとの通信に失敗した＞＞\nなるちゃんに連絡して!"
+			errorResponse = message.CONNECTION_ERROR
 		case applicationerror.ResponseParseError:
 			go opProcessor.ohDao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerResponseError)
-			errorResponse = fmt.Sprintf("！！！何が起きたか分からない！！！\nなるちゃんに↓これと一緒に至急連絡\n%s", applicationerror.ResponseParseError.Code)
+			errorResponse = fmt.Sprintf(message.APPLICATION_ERROR, applicationerror.ResponseParseError.Code)
 		default:
 			errorResponse = "不正な操作！どうやってここまで辿り着いた？？"
 		}

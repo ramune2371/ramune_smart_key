@@ -1,12 +1,14 @@
 package processor
 
 import (
+	"fmt"
 	"linebot/applicationerror"
 	"linebot/dao/operation_history"
 	mock_operation_history "linebot/dao/operation_history/mock"
 	"linebot/dao/user_info"
 	mock_user_info "linebot/dao/user_info/mock"
 	"linebot/entity"
+	"linebot/entity/message"
 	"linebot/testutil"
 	"linebot/transfer/key_server"
 	mock_key_server "linebot/transfer/key_server/mock"
@@ -118,9 +120,9 @@ func TestOperationProcessor_HandleEvents(t *testing.T) {
 
 		t.Run("有効ユーザのみからのリクエスト", func(t *testing.T) {
 			expectResTexts := map[string]string{
-				"open":  "→鍵開けたよ",
-				"close": "→鍵閉めたよ",
-				"check": "あいてるよ",
+				"open":  message.SUCCESS_OPEN,
+				"close": message.SUCCESS_CLOSE,
+				"check": message.CHECK_OPEN,
 			}
 			response := map[string]entity.KeyServerResponse{
 				"open":  {KeyStatus: entity.KeyStatusOpen, OperationStatus: entity.OperationComplete},
@@ -198,7 +200,7 @@ func TestOperationProcessor_HandleEvents(t *testing.T) {
 	t.Run("正常系(isOperating:true、単一ユーザ)", func(t *testing.T) {
 
 		t.Run("有効ユーザのみからのリクエスト", func(t *testing.T) {
-			expectResTexts := "＝＝＝他操作の処理中＝＝＝"
+			expectResTexts := message.ANOTHER_OPERATING
 			for _, ot := range operationTypes {
 				targetEvents := []*linebot.Event{
 					{Message: linebot.NewTextMessage(ot), Source: &linebot.EventSource{UserID: "valid" + ot}, ReplyToken: "validToken"},
@@ -270,8 +272,8 @@ func TestOperationProcessor_HandleEvents(t *testing.T) {
 			applicationerror.ResponseParseError,
 		}
 		expectResTexts := []string{
-			"＜＜鍵サーバとの通信に失敗した＞＞\nなるちゃんに連絡して!",
-			"！！！何が起きたか分からない！！！\nなるちゃんに↓これと一緒に至急連絡\n102",
+			message.CONNECTION_ERROR,
+			fmt.Sprintf(message.APPLICATION_ERROR, "102"),
 		}
 		for i, err := range errors {
 			expectResText := expectResTexts[i]
@@ -542,13 +544,13 @@ func TestReplyCheckResult(t *testing.T) {
 			description:  "open",
 			targetToken:  "openToken",
 			targetResult: entity.KeyStatusOpen,
-			expectText:   "あいてるよ",
+			expectText:   message.CHECK_OPEN,
 		},
 		{
 			description:  "close",
 			targetToken:  "closeToken",
 			targetResult: entity.KeyStatusClose,
-			expectText:   "しまってるよ",
+			expectText:   message.CHECK_CLOSE,
 		},
 	}
 
@@ -577,14 +579,6 @@ func TestHandleKeyServerResult(t *testing.T) {
 	user1Close := entity.Operation{OperationId: -1, UserId: "user1", Operation: entity.Close, ReplyToken: "user1Token"}
 	user1Check := entity.Operation{OperationId: -1, UserId: "user1", Operation: entity.Check, ReplyToken: "user1Token"}
 
-	const EXPECT_OTHER_OPERATION_MESSAGE = "＝＝＝他操作の処理中＝＝＝"
-	const EXPECT_OPEN_SUCCESS_MESSAGE = "→鍵開けたよ"
-	const EXPECT_OPEN_CHECK_MESSAGE = "あいてるよ"
-	const EXPECT_OTHER_OPEN_MESSAGE = "→誰かが開けたよ"
-	const EXPECT_CLOSE_SUCCESS_MESSAGE = "→鍵閉めたよ"
-	const EXPECT_CLOSE_CHECK_MESSAGE = "しまってるよ"
-	const EXPECT_OTHER_CLOSE_MESSAGE = "→誰かが閉めたよ"
-
 	tests := []struct {
 		description           string
 		targetOps             map[string]entity.Operation
@@ -599,28 +593,28 @@ func TestHandleKeyServerResult(t *testing.T) {
 			targetOps:             map[string]entity.Operation{"user1": user1Open},
 			targetKeyStatus:       entity.KeyStatusOpen,
 			targetOperationStatus: entity.OperationAlready,
-			expectResText:         EXPECT_OPEN_SUCCESS_MESSAGE,
+			expectResText:         message.SUCCESS_OPEN,
 		},
 		{
 			description:           "単一ユーザ(操作:open, 鍵状態:Open, 操作状態:成功)",
 			targetOps:             map[string]entity.Operation{"user1": user1Open},
 			targetKeyStatus:       entity.KeyStatusOpen,
 			targetOperationStatus: entity.OperationComplete,
-			expectResText:         EXPECT_OPEN_SUCCESS_MESSAGE,
+			expectResText:         message.SUCCESS_OPEN,
 		},
 		{
 			description:           "単一ユーザ(操作:open, 鍵状態:Open, 操作状態:他の人が操作中)",
 			targetOps:             map[string]entity.Operation{"user1": user1Open},
 			targetKeyStatus:       entity.KeyStatusOpen,
 			targetOperationStatus: entity.OperationAnother,
-			expectResText:         EXPECT_OTHER_OPERATION_MESSAGE,
+			expectResText:         message.ANOTHER_OPERATING,
 		},
 		{
 			description:           "単一ユーザ(操作:open, 鍵状態:Open, 操作状態:unknown)",
 			targetOps:             map[string]entity.Operation{"user1": user1Open},
 			targetKeyStatus:       entity.KeyStatusOpen,
 			targetOperationStatus: entity.OperationUnknown,
-			expectResText:         EXPECT_OPEN_SUCCESS_MESSAGE,
+			expectResText:         message.SUCCESS_OPEN,
 		},
 		// user1close
 		{
@@ -628,28 +622,28 @@ func TestHandleKeyServerResult(t *testing.T) {
 			targetOps:             map[string]entity.Operation{"user1": user1Close},
 			targetKeyStatus:       entity.KeyStatusOpen,
 			targetOperationStatus: entity.OperationAlready,
-			expectResText:         EXPECT_OTHER_OPEN_MESSAGE,
+			expectResText:         message.ANOTHER_OPEN,
 		},
 		{
 			description:           "単一ユーザ(操作:close, 鍵状態:Open, 操作状態:成功)",
 			targetOps:             map[string]entity.Operation{"user1": user1Close},
 			targetKeyStatus:       entity.KeyStatusOpen,
 			targetOperationStatus: entity.OperationComplete,
-			expectResText:         EXPECT_OTHER_OPEN_MESSAGE,
+			expectResText:         message.ANOTHER_OPEN,
 		},
 		{
 			description:           "単一ユーザ(操作:close, 鍵状態:Open, 操作状態:他の人が操作中)",
 			targetOps:             map[string]entity.Operation{"user1": user1Close},
 			targetKeyStatus:       entity.KeyStatusOpen,
 			targetOperationStatus: entity.OperationAnother,
-			expectResText:         EXPECT_OTHER_OPERATION_MESSAGE,
+			expectResText:         message.ANOTHER_OPERATING,
 		},
 		{
 			description:           "単一ユーザ(操作:close, 鍵状態:Open, 操作状態:unknown)",
 			targetOps:             map[string]entity.Operation{"user1": user1Close},
 			targetKeyStatus:       entity.KeyStatusOpen,
 			targetOperationStatus: entity.OperationUnknown,
-			expectResText:         EXPECT_OTHER_OPEN_MESSAGE,
+			expectResText:         message.ANOTHER_OPEN,
 		},
 		// user1check
 		{
@@ -657,28 +651,28 @@ func TestHandleKeyServerResult(t *testing.T) {
 			targetOps:             map[string]entity.Operation{"user1": user1Check},
 			targetKeyStatus:       entity.KeyStatusOpen,
 			targetOperationStatus: entity.OperationAlready,
-			expectResText:         EXPECT_OPEN_CHECK_MESSAGE,
+			expectResText:         message.CHECK_OPEN,
 		},
 		{
 			description:           "単一ユーザ(操作:check, 鍵状態:Open, 操作状態:成功)",
 			targetOps:             map[string]entity.Operation{"user1": user1Check},
 			targetKeyStatus:       entity.KeyStatusOpen,
 			targetOperationStatus: entity.OperationComplete,
-			expectResText:         EXPECT_OPEN_CHECK_MESSAGE,
+			expectResText:         message.CHECK_OPEN,
 		},
 		{
 			description:           "単一ユーザ(操作:check, 鍵状態:Open, 操作状態:他の人が操作中)",
 			targetOps:             map[string]entity.Operation{"user1": user1Check},
 			targetKeyStatus:       entity.KeyStatusOpen,
 			targetOperationStatus: entity.OperationAnother,
-			expectResText:         EXPECT_OTHER_OPERATION_MESSAGE,
+			expectResText:         message.ANOTHER_OPERATING,
 		},
 		{
 			description:           "単一ユーザ(操作:check, 鍵状態:Open, 操作状態:unknown)",
 			targetOps:             map[string]entity.Operation{"user1": user1Check},
 			targetKeyStatus:       entity.KeyStatusOpen,
 			targetOperationStatus: entity.OperationUnknown,
-			expectResText:         EXPECT_OPEN_CHECK_MESSAGE,
+			expectResText:         message.CHECK_OPEN,
 		},
 
 		// key status close
@@ -688,28 +682,28 @@ func TestHandleKeyServerResult(t *testing.T) {
 			targetOps:             map[string]entity.Operation{"user1": user1Open},
 			targetKeyStatus:       entity.KeyStatusClose,
 			targetOperationStatus: entity.OperationAlready,
-			expectResText:         EXPECT_OTHER_CLOSE_MESSAGE,
+			expectResText:         message.ANOTHER_CLOSE,
 		},
 		{
 			description:           "単一ユーザ(操作:open, 鍵状態:Open, 操作状態:成功)",
 			targetOps:             map[string]entity.Operation{"user1": user1Open},
 			targetKeyStatus:       entity.KeyStatusClose,
 			targetOperationStatus: entity.OperationComplete,
-			expectResText:         EXPECT_OTHER_CLOSE_MESSAGE,
+			expectResText:         message.ANOTHER_CLOSE,
 		},
 		{
 			description:           "単一ユーザ(操作:open, 鍵状態:Open, 操作状態:他の人が操作中)",
 			targetOps:             map[string]entity.Operation{"user1": user1Open},
 			targetKeyStatus:       entity.KeyStatusClose,
 			targetOperationStatus: entity.OperationAnother,
-			expectResText:         EXPECT_OTHER_OPERATION_MESSAGE,
+			expectResText:         message.ANOTHER_OPERATING,
 		},
 		{
 			description:           "単一ユーザ(操作:open, 鍵状態:Open, 操作状態:unknown)",
 			targetOps:             map[string]entity.Operation{"user1": user1Open},
 			targetKeyStatus:       entity.KeyStatusClose,
 			targetOperationStatus: entity.OperationUnknown,
-			expectResText:         EXPECT_OTHER_CLOSE_MESSAGE,
+			expectResText:         message.ANOTHER_CLOSE,
 		},
 		// user1close
 		{
@@ -717,28 +711,28 @@ func TestHandleKeyServerResult(t *testing.T) {
 			targetOps:             map[string]entity.Operation{"user1": user1Close},
 			targetKeyStatus:       entity.KeyStatusClose,
 			targetOperationStatus: entity.OperationAlready,
-			expectResText:         EXPECT_CLOSE_SUCCESS_MESSAGE,
+			expectResText:         message.SUCCESS_CLOSE,
 		},
 		{
 			description:           "単一ユーザ(操作:close, 鍵状態:Open, 操作状態:成功)",
 			targetOps:             map[string]entity.Operation{"user1": user1Close},
 			targetKeyStatus:       entity.KeyStatusClose,
 			targetOperationStatus: entity.OperationComplete,
-			expectResText:         EXPECT_CLOSE_SUCCESS_MESSAGE,
+			expectResText:         message.SUCCESS_CLOSE,
 		},
 		{
 			description:           "単一ユーザ(操作:close, 鍵状態:Open, 操作状態:他の人が操作中)",
 			targetOps:             map[string]entity.Operation{"user1": user1Close},
 			targetKeyStatus:       entity.KeyStatusClose,
 			targetOperationStatus: entity.OperationAnother,
-			expectResText:         EXPECT_OTHER_OPERATION_MESSAGE,
+			expectResText:         message.ANOTHER_OPERATING,
 		},
 		{
 			description:           "単一ユーザ(操作:close, 鍵状態:Open, 操作状態:unknown)",
 			targetOps:             map[string]entity.Operation{"user1": user1Close},
 			targetKeyStatus:       entity.KeyStatusClose,
 			targetOperationStatus: entity.OperationUnknown,
-			expectResText:         EXPECT_CLOSE_SUCCESS_MESSAGE,
+			expectResText:         message.SUCCESS_CLOSE,
 		},
 		// user1check
 		{
@@ -746,28 +740,28 @@ func TestHandleKeyServerResult(t *testing.T) {
 			targetOps:             map[string]entity.Operation{"user1": user1Check},
 			targetKeyStatus:       entity.KeyStatusClose,
 			targetOperationStatus: entity.OperationAlready,
-			expectResText:         EXPECT_CLOSE_CHECK_MESSAGE,
+			expectResText:         message.CHECK_CLOSE,
 		},
 		{
 			description:           "単一ユーザ(操作:check, 鍵状態:Open, 操作状態:成功)",
 			targetOps:             map[string]entity.Operation{"user1": user1Check},
 			targetKeyStatus:       entity.KeyStatusClose,
 			targetOperationStatus: entity.OperationComplete,
-			expectResText:         EXPECT_CLOSE_CHECK_MESSAGE,
+			expectResText:         message.CHECK_CLOSE,
 		},
 		{
 			description:           "単一ユーザ(操作:check, 鍵状態:Open, 操作状態:他の人が操作中)",
 			targetOps:             map[string]entity.Operation{"user1": user1Check},
 			targetKeyStatus:       entity.KeyStatusClose,
 			targetOperationStatus: entity.OperationAnother,
-			expectResText:         EXPECT_OTHER_OPERATION_MESSAGE,
+			expectResText:         message.ANOTHER_OPERATING,
 		},
 		{
 			description:           "単一ユーザ(操作:check, 鍵状態:Open, 操作状態:unknown)",
 			targetOps:             map[string]entity.Operation{"user1": user1Check},
 			targetKeyStatus:       entity.KeyStatusClose,
 			targetOperationStatus: entity.OperationUnknown,
-			expectResText:         EXPECT_CLOSE_CHECK_MESSAGE,
+			expectResText:         message.CHECK_CLOSE,
 		},
 	}
 
