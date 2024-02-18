@@ -57,7 +57,7 @@ func (OperationHistoryDaoImpl OperationHistoryDaoImpl) UpdateOperationHistoryByO
 
 	var target entity.OperationHistory
 
-	res := OperationHistoryDaoImpl.Database.ReadWrite(entity.OperationHistoryTable, func(tx *gorm.DB) error {
+	err := OperationHistoryDaoImpl.Database.ReadWrite(entity.OperationHistoryTable, func(tx *gorm.DB) error {
 		if err := tx.Where("operation_id = ?", operationId).First(&target).Error; err != nil {
 			logger.ErrorWithStackTrace(err, &logger.LBER030001)
 			return err
@@ -70,7 +70,7 @@ func (OperationHistoryDaoImpl OperationHistoryDaoImpl) UpdateOperationHistoryByO
 		return nil
 	})
 
-	if res != nil {
+	if err != nil || target.OperationId == nil {
 		return -1
 	}
 
@@ -95,7 +95,7 @@ func (OperationHistoryDaoImpl OperationHistoryDaoImpl) UpdateOperationHistoryWit
 		}
 		target.ErrorCode = errorCode
 		target.OperationResult = entity.Error
-		if err := tx.Save(target).Error; err != nil {
+		if err := tx.Save(&target).Error; err != nil {
 			logger.ErrorWithStackTrace(err, &logger.LBER030001)
 			return err
 		}
