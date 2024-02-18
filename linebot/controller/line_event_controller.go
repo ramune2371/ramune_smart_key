@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"linebot/applicationerror"
 	"linebot/dao/database"
 	"linebot/dao/operation_history"
 	"linebot/dao/user_info"
@@ -27,7 +28,7 @@ func NewLineEventController() *LineEventController {
 	lineBot, err := linebot.New(props.ChannelSecret, props.ChannelToken)
 
 	if err != nil {
-		logger.FatalWithStackTrace(err, logger.LBFT040004)
+		logger.FatalWithStackTrace(err, applicationerror.SystemError, logger.LBFT040004)
 		panic(err)
 	}
 	lTransfer := line.NewLineTransfer(lineBot)

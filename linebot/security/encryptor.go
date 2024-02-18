@@ -19,7 +19,7 @@ func (e EncryptorImpl) SaltHash(value string) string {
 	ret, err := scrypt.Key([]byte(value), []byte(props.Salt), 32768, 8, 1, 32)
 	if err != nil {
 		// scrypt.Keyの第3引数以降に固定値を入れているため、改修しない限り発生しない
-		logger.FatalWithStackTrace(err, logger.LBFT900001)
+		logger.FatalWithStackTrace(err, nil, logger.LBFT900001)
 		os.Exit(1)
 	}
 

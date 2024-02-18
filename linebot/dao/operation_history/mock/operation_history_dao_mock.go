@@ -35,11 +35,12 @@ func (m *MockOperationHistoryDao) EXPECT() *MockOperationHistoryDaoMockRecorder 
 }
 
 // InsertOperationHistory mocks base method.
-func (m *MockOperationHistoryDao) InsertOperationHistory(lineId string, operationType entity.OperationType, operationResult entity.OperationResult) *entity.OperationHistory {
+func (m *MockOperationHistoryDao) InsertOperationHistory(lineId string, operationType entity.OperationType, operationResult entity.OperationResult) (*entity.OperationHistory, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InsertOperationHistory", lineId, operationType, operationResult)
 	ret0, _ := ret[0].(*entity.OperationHistory)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // InsertOperationHistory indicates an expected call of InsertOperationHistory.
@@ -49,11 +50,12 @@ func (mr *MockOperationHistoryDaoMockRecorder) InsertOperationHistory(lineId, op
 }
 
 // UpdateOperationHistoryByOperationId mocks base method.
-func (m *MockOperationHistoryDao) UpdateOperationHistoryByOperationId(operationId int, result entity.OperationResult) int {
+func (m *MockOperationHistoryDao) UpdateOperationHistoryByOperationId(operationId int, result entity.OperationResult) (int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateOperationHistoryByOperationId", operationId, result)
 	ret0, _ := ret[0].(int)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // UpdateOperationHistoryByOperationId indicates an expected call of UpdateOperationHistoryByOperationId.
@@ -63,11 +65,12 @@ func (mr *MockOperationHistoryDaoMockRecorder) UpdateOperationHistoryByOperation
 }
 
 // UpdateOperationHistoryWithErrorByOperationId mocks base method.
-func (m *MockOperationHistoryDao) UpdateOperationHistoryWithErrorByOperationId(operationId int, errorCode entity.OperationErrorCode) int {
+func (m *MockOperationHistoryDao) UpdateOperationHistoryWithErrorByOperationId(operationId int, errorCode entity.OperationErrorCode) (int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateOperationHistoryWithErrorByOperationId", operationId, errorCode)
 	ret0, _ := ret[0].(int)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // UpdateOperationHistoryWithErrorByOperationId indicates an expected call of UpdateOperationHistoryWithErrorByOperationId.

@@ -1,6 +1,7 @@
 package props
 
 import (
+	"linebot/applicationerror"
 	"linebot/logger"
 	"net/url"
 	"os"
@@ -17,7 +18,7 @@ func loadKeyServerUrl() {
 	loadUrl := readEnv(KEY_SERVER_ENV, "http://localhost:9999/")
 	_, err := url.ParseRequestURI(loadUrl)
 	if err != nil {
-		logger.FatalWithStackTrace(err, logger.LBFT900002, KEY_SERVER_ENV)
+		logger.FatalWithStackTrace(err, applicationerror.SystemError, logger.LBFT900002, KEY_SERVER_ENV)
 		OsExit(1)
 	}
 	KeyServerURL = loadUrl

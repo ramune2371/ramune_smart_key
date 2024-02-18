@@ -35,11 +35,12 @@ func (m *MockUserInfoDao) EXPECT() *MockUserInfoDaoMockRecorder {
 }
 
 // GetUserByLineId mocks base method.
-func (m *MockUserInfoDao) GetUserByLineId(lineId string) *entity.UserInfo {
+func (m *MockUserInfoDao) GetUserByLineId(lineId string) (*entity.UserInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUserByLineId", lineId)
 	ret0, _ := ret[0].(*entity.UserInfo)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // GetUserByLineId indicates an expected call of GetUserByLineId.
@@ -49,11 +50,12 @@ func (mr *MockUserInfoDaoMockRecorder) GetUserByLineId(lineId interface{}) *gomo
 }
 
 // UpdateUserLastAccess mocks base method.
-func (m *MockUserInfoDao) UpdateUserLastAccess(lineId string) bool {
+func (m *MockUserInfoDao) UpdateUserLastAccess(lineId string) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateUserLastAccess", lineId)
 	ret0, _ := ret[0].(bool)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // UpdateUserLastAccess indicates an expected call of UpdateUserLastAccess.
@@ -63,11 +65,12 @@ func (mr *MockUserInfoDaoMockRecorder) UpdateUserLastAccess(lineId interface{}) 
 }
 
 // UpsertInvalidUser mocks base method.
-func (m *MockUserInfoDao) UpsertInvalidUser(lineId string) bool {
+func (m *MockUserInfoDao) UpsertInvalidUser(lineId string) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpsertInvalidUser", lineId)
 	ret0, _ := ret[0].(bool)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // UpsertInvalidUser indicates an expected call of UpsertInvalidUser.

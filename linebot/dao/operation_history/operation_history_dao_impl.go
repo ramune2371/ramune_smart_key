@@ -2,6 +2,7 @@ package operation_history
 
 import (
 	"fmt"
+	"linebot/applicationerror"
 	"linebot/dao/database"
 	"linebot/entity"
 	"linebot/logger"
@@ -20,7 +21,7 @@ args: lineId,operationType,operationResult
 
 return: insertしたレコード
 */
-func (OperationHistoryDaoImpl OperationHistoryDaoImpl) InsertOperationHistory(lineId string, operationType entity.OperationType, operationResult entity.OperationResult) *entity.OperationHistory {
+func (OperationHistoryDaoImpl OperationHistoryDaoImpl) InsertOperationHistory(lineId string, operationType entity.OperationType, operationResult entity.OperationResult) (*entity.OperationHistory, error) {
 
 	data := entity.OperationHistory{
 		LineId:          lineId,
@@ -28,20 +29,20 @@ func (OperationHistoryDaoImpl OperationHistoryDaoImpl) InsertOperationHistory(li
 		OperationResult: operationResult,
 	}
 
-	res := OperationHistoryDaoImpl.Database.ReadWrite(entity.OperationHistoryTable, func(tx *gorm.DB) error {
+	err := OperationHistoryDaoImpl.Database.ReadWrite(entity.OperationHistoryTable, func(tx *gorm.DB) error {
 		if err := tx.Create(&data).Error; err != nil {
-			logger.ErrorWithStackTrace(err, logger.LBER030002)
+			logger.ErrorWithStackTrace(err, applicationerror.DBInsertError, logger.LBER030002)
 			return err
 		}
 		return nil
 	})
 
-	if res != nil {
-		return nil
+	if err != nil {
+		return nil, err
 	}
 
 	logger.Debug(fmt.Sprintf("data: %+v", data))
-	return &data
+	return &data, nil
 }
 
 /*
@@ -53,28 +54,28 @@ args: operationId=更新対象のoperationId, result=更新するOperationResult
 
 return: 更新したレコードのID(error時は-1)
 */
-func (OperationHistoryDaoImpl OperationHistoryDaoImpl) UpdateOperationHistoryByOperationId(operationId int, result entity.OperationResult) int {
+func (OperationHistoryDaoImpl OperationHistoryDaoImpl) UpdateOperationHistoryByOperationId(operationId int, result entity.OperationResult) (int, error) {
 
 	var target entity.OperationHistory
 
 	err := OperationHistoryDaoImpl.Database.ReadWrite(entity.OperationHistoryTable, func(tx *gorm.DB) error {
 		if err := tx.Where("operation_id = ?", operationId).First(&target).Error; err != nil {
-			logger.ErrorWithStackTrace(err, logger.LBER030001)
+			logger.ErrorWithStackTrace(err, applicationerror.DBSelectError, logger.LBER030001)
 			return err
 		}
 		target.OperationResult = result
 		if err := tx.Save(&target).Error; err != nil {
-			logger.ErrorWithStackTrace(err, logger.LBER030002)
+			logger.ErrorWithStackTrace(err, applicationerror.DBUpdateError, logger.LBER030002)
 			return err
 		}
 		return nil
 	})
 
 	if err != nil || target.OperationId == nil {
-		return -1
+		return -1, err
 	}
 
-	return *target.OperationId
+	return *target.OperationId, nil
 }
 
 /*
@@ -86,23 +87,23 @@ args: operationId=更新対象のOperationId, errorCode=更新するOperationErr
 
 return 更新したOperationId。エラー時は-1
 */
-func (OperationHistoryDaoImpl OperationHistoryDaoImpl) UpdateOperationHistoryWithErrorByOperationId(operationId int, errorCode entity.OperationErrorCode) int {
+func (OperationHistoryDaoImpl OperationHistoryDaoImpl) UpdateOperationHistoryWithErrorByOperationId(operationId int, errorCode entity.OperationErrorCode) (int, error) {
 	var target entity.OperationHistory
-	res := OperationHistoryDaoImpl.Database.ReadWrite(entity.OperationHistoryTable, func(tx *gorm.DB) error {
+	err := OperationHistoryDaoImpl.Database.ReadWrite(entity.OperationHistoryTable, func(tx *gorm.DB) error {
 		if err := tx.Where("operation_id = ?", operationId).Find(&target).Error; err != nil {
-			logger.ErrorWithStackTrace(err, logger.LBER030001)
+			logger.ErrorWithStackTrace(err, applicationerror.DBSelectError, logger.LBER030001)
 			return err
 		}
 		target.ErrorCode = errorCode
 		target.OperationResult = entity.Error
 		if err := tx.Save(&target).Error; err != nil {
-			logger.ErrorWithStackTrace(err, logger.LBER030001)
+			logger.ErrorWithStackTrace(err, applicationerror.DBUpdateError, logger.LBER030001)
 			return err
 		}
 		return nil
 	})
-	if res == nil {
-		return -1
+	if err == nil {
+		return -1, err
 	}
-	return *target.OperationId
+	return *target.OperationId, nil
 }

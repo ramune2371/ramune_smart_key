@@ -1,6 +1,7 @@
 package user_info
 
 import (
+	"linebot/applicationerror"
 	"linebot/dao/database"
 	"linebot/entity"
 	"linebot/logger"
@@ -17,42 +18,42 @@ type UserInfoDaoImpl struct {
 /*
 LineのIDを元に、ユーザレコードを取得
 */
-func (uiDao UserInfoDaoImpl) GetUserByLineId(lineId string) *entity.UserInfo {
+func (uiDao UserInfoDaoImpl) GetUserByLineId(lineId string) (*entity.UserInfo, error) {
 	var ret *entity.UserInfo
 
-	res := uiDao.Database.ReadOnly(entity.UserInfoTable, func(tx *gorm.DB) error {
+	err := uiDao.Database.ReadOnly(entity.UserInfoTable, func(tx *gorm.DB) error {
 		if err := tx.Where("line_id = ?", lineId).Find(&ret).Error; err != nil {
-			logger.ErrorWithStackTrace(err, logger.LBER030001)
+			logger.ErrorWithStackTrace(err, applicationerror.DBSelectError, logger.LBER030001)
 			return err
 		}
 		return nil
 	})
 
-	if res != nil {
-		return nil
+	if err != nil {
+		return nil, err
 	}
 
-	return ret
+	return ret, nil
 }
 
 /*
 LineのIDを元に、最終アクセス時間を更新
 UI-A-01
 */
-func (uiDao UserInfoDaoImpl) UpdateUserLastAccess(lineId string) bool {
+func (uiDao UserInfoDaoImpl) UpdateUserLastAccess(lineId string) (bool, error) {
 
-	res := uiDao.Database.ReadWrite(entity.UserInfoTable, func(tx *gorm.DB) error {
+	err := uiDao.Database.ReadWrite(entity.UserInfoTable, func(tx *gorm.DB) error {
 		if err := tx.Where("line_id = ?", lineId).Update("last_access", time.Now()).Error; err != nil {
-			logger.ErrorWithStackTrace(err, logger.LBER030002)
+			logger.ErrorWithStackTrace(err, applicationerror.DBUpdateError, logger.LBER030002)
 			return err
 		}
 		return nil
 	})
 
-	if res != nil {
-		return false
+	if err != nil {
+		return false, err
 	} else {
-		return true
+		return true, nil
 	}
 }
 
@@ -60,12 +61,12 @@ func (uiDao UserInfoDaoImpl) UpdateUserLastAccess(lineId string) bool {
 LineのIDを元に、不正なユーザレコードを作成 or 最終アクセス時間を更新
 UI-E-01
 */
-func (uiDao UserInfoDaoImpl) UpsertInvalidUser(lineId string) bool {
+func (uiDao UserInfoDaoImpl) UpsertInvalidUser(lineId string) (bool, error) {
 
 	var ret *entity.UserInfo
-	res := uiDao.Database.ReadWrite(entity.UserInfoTable, func(tx *gorm.DB) error {
+	err := uiDao.Database.ReadWrite(entity.UserInfoTable, func(tx *gorm.DB) error {
 		if err := tx.Where("line_id = ?", lineId).Find(&ret).Error; err != nil {
-			logger.ErrorWithStackTrace(err, logger.LBER030001)
+			logger.ErrorWithStackTrace(err, applicationerror.DBSelectError, logger.LBER030001)
 			return err
 		}
 		if ret.UserUuid == "" {
@@ -77,14 +78,14 @@ func (uiDao UserInfoDaoImpl) UpsertInvalidUser(lineId string) bool {
 		}
 		ret.Active = false
 		if err := tx.Where("line_id = ?", lineId).Save(&ret).Error; err != nil {
-			logger.ErrorWithStackTrace(err, logger.LBER030002)
+			logger.ErrorWithStackTrace(err, applicationerror.DBUpdateError, logger.LBER030002)
 			return err
 		}
 		return nil
 	})
-	if res != nil {
-		return false
+	if err != nil {
+		return false, err
 	} else {
-		return true
+		return true, nil
 	}
 }

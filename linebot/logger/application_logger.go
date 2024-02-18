@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"linebot/applicationerror"
 	"net/http"
 	"os"
 
@@ -82,12 +83,12 @@ func Request(req *http.Request) {
 	buf, err := io.ReadAll(req.Body)
 	if err != nil {
 
-		ErrorWithStackTrace(err, LBER010001)
+		ErrorWithStackTrace(err, nil, LBER010001)
 	}
 
 	j, err := json.Marshal(req.Header)
 	if err != nil {
-		ErrorWithStackTrace(err, LBER010001)
+		ErrorWithStackTrace(err, nil, LBER010001)
 	}
 
 	log.Info().Str("type", "RequestLogger").RawJSON("header", j).Msg(string(buf))
@@ -110,7 +111,10 @@ func Warn(l *applicationLog, values ...interface{}) {
 	log.Warn().Str("type", "ApplicationLogger").Str("id", l.Id).Msg(fmt.Sprintf(l.GetMsgFormat(), values...))
 }
 
-func WarnWithStackTrace(err error, l *applicationLog, values ...interface{}) {
+func WarnWithStackTrace(err error, aplErr *applicationerror.ApplicationError, l *applicationLog, values ...interface{}) {
+	if aplErr != nil {
+		log.Warn().Err(err).Str("type", "ApplicationLogger").Str("errorCode", aplErr.Code).Str("errorMessage", aplErr.Message).Str("id", l.Id).Msg(fmt.Sprintf(l.GetMsgFormat(), values...))
+	}
 	log.Warn().Err(err).Str("type", "ApplicationLogger").Str("id", l.Id).Msg(fmt.Sprintf(l.GetMsgFormat(), values...))
 }
 
@@ -118,7 +122,10 @@ func Error(l *applicationLog, values ...interface{}) {
 	log.Error().Str("type", "ApplicationLogger").Str("id", l.Id).Msg(fmt.Sprintf(l.GetMsgFormat(), values...))
 }
 
-func ErrorWithStackTrace(err error, l *applicationLog, values ...interface{}) {
+func ErrorWithStackTrace(err error, aplErr *applicationerror.ApplicationError, l *applicationLog, values ...interface{}) {
+	if aplErr != nil {
+		log.Error().Err(err).Str("type", "ApplicationLogger").Str("errorCode", aplErr.Code).Str("errorMessage", aplErr.Message).Str("id", l.Id).Msg(fmt.Sprintf(l.GetMsgFormat(), values...))
+	}
 	log.Error().Err(err).Str("type", "ApplicationLogger").Str("id", l.Id).Msg(fmt.Sprintf(l.GetMsgFormat(), values...))
 }
 
@@ -126,7 +133,10 @@ func Fatal(l *applicationLog, values ...interface{}) {
 	log.WithLevel(zerolog.FatalLevel).Str("type", "ApplicationLogger").Str("id", l.Id).Msg(fmt.Sprintf(l.GetMsgFormat(), values...))
 }
 
-func FatalWithStackTrace(err error, l *applicationLog, values ...interface{}) {
+func FatalWithStackTrace(err error, aplErr *applicationerror.ApplicationError, l *applicationLog, values ...interface{}) {
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
+	if aplErr != nil {
+		log.WithLevel(zerolog.FatalLevel).Err(err).Str("type", "ApplicationLogger").Str("errorCode", aplErr.Code).Str("errorMessage", aplErr.Message).Str("id", l.Id).Msg(fmt.Sprintf(l.GetMsgFormat(), values...))
+	}
 	log.WithLevel(zerolog.FatalLevel).Err(err).Str("type", "ApplicationLogger").Str("id", l.Id).Msg(fmt.Sprintf(l.GetMsgFormat(), values...))
 }

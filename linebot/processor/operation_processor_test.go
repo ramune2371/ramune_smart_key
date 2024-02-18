@@ -75,21 +75,21 @@ func getMockedUserInfoDao(t *testing.T, ctrl *gomock.Controller) user_info.UserI
 	operationTypes := []string{"open", "close", "check"}
 	mockedUserInfoDao := mock_user_info.NewMockUserInfoDao(ctrl)
 	mockedUserInfoDao.EXPECT().GetUserByLineId(gomock.Any()).DoAndReturn(
-		func(lineId string) *entity.UserInfo {
+		func(lineId string) (*entity.UserInfo, error) {
 			return &entity.UserInfo{
 				UserUuid:   "",
 				LineId:     lineId,
 				UserName:   lineId,
 				LastAccess: nil,
 				Active:     !strings.Contains(lineId, "invalid"),
-			}
+			}, nil
 		},
 	).AnyTimes()
 	for _, o := range operationTypes {
-		mockedUserInfoDao.EXPECT().UpsertInvalidUser("invalid" + o + "SaltHash").Return(true).AnyTimes()
+		mockedUserInfoDao.EXPECT().UpsertInvalidUser("invalid"+o+"SaltHash").Return(true, nil).AnyTimes()
 	}
 	for _, o := range operationTypes {
-		mockedUserInfoDao.EXPECT().UpdateUserLastAccess("valid" + o + "SaltHash").Return(true).AnyTimes()
+		mockedUserInfoDao.EXPECT().UpdateUserLastAccess("valid"+o+"SaltHash").Return(true, nil).AnyTimes()
 	}
 	return mockedUserInfoDao
 }
@@ -97,17 +97,17 @@ func getMockedUserInfoDao(t *testing.T, ctrl *gomock.Controller) user_info.UserI
 func getMockOperationHistoryDao(t *testing.T, ctrl *gomock.Controller) operation_history.OperationHistoryDao {
 	mockedOperationHistoryDao := mock_operation_history.NewMockOperationHistoryDao(ctrl)
 	id := -1
-	mockedOperationHistoryDao.EXPECT().InsertOperationHistory(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(lineId string, operationType entity.OperationType, operationResult entity.OperationResult) *entity.OperationHistory {
+	mockedOperationHistoryDao.EXPECT().InsertOperationHistory(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(lineId string, operationType entity.OperationType, operationResult entity.OperationResult) (*entity.OperationHistory, error) {
 		return &entity.OperationHistory{
 			OperationId:     &id,
 			LineId:          lineId,
 			OperationType:   operationType,
 			OperationResult: operationResult,
 			OperationTime:   nil,
-		}
+		}, nil
 	}).AnyTimes()
-	mockedOperationHistoryDao.EXPECT().UpdateOperationHistoryByOperationId(gomock.Any(), gomock.Any()).Return(-1).AnyTimes()
-	mockedOperationHistoryDao.EXPECT().UpdateOperationHistoryWithErrorByOperationId(gomock.Any(), gomock.Any()).Return(-1).AnyTimes()
+	mockedOperationHistoryDao.EXPECT().UpdateOperationHistoryByOperationId(gomock.Any(), gomock.Any()).Return(-1, nil).AnyTimes()
+	mockedOperationHistoryDao.EXPECT().UpdateOperationHistoryWithErrorByOperationId(gomock.Any(), gomock.Any()).Return(-1, nil).AnyTimes()
 	return mockedOperationHistoryDao
 }
 

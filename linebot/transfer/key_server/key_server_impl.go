@@ -33,14 +33,16 @@ func (kst KeyServerTransferImpl) Request(path string) (entity.KeyServerResponse,
 	logger.Debug(fmt.Sprintf("res%v", res))
 	if err != nil {
 		err = errors.Wrap(err, "Failed connect key server")
-		logger.FatalWithStackTrace(err, logger.LBFT040001)
+		err = errors.Wrap(err, applicationerror.ConnectionError.Error())
+		logger.FatalWithStackTrace(err, applicationerror.ConnectionError, logger.LBFT040001)
 		return entity.KeyServerResponse{}, applicationerror.ConnectionError
 	}
 
 	bytesArray, err := io.ReadAll(res.Body)
 	if err != nil {
 		err = errors.Wrap(err, "Failed read response from key server")
-		logger.FatalWithStackTrace(err, logger.LBFT040001)
+		err = errors.Wrap(err, applicationerror.ResponseParseError.Error())
+		logger.FatalWithStackTrace(err, applicationerror.ResponseParseError, logger.LBFT040001)
 		return entity.KeyServerResponse{}, applicationerror.ResponseParseError
 	}
 	res.Body.Close()
@@ -50,7 +52,8 @@ func (kst KeyServerTransferImpl) Request(path string) (entity.KeyServerResponse,
 	err = json.Unmarshal(bytesArray, &ret)
 	if err != nil {
 		err = errors.Wrap(err, "Failed convert response from key server")
-		logger.FatalWithStackTrace(err, logger.LBFT040003, string(bytesArray))
+		err = errors.Wrap(err, applicationerror.ResponseParseError.Error())
+		logger.FatalWithStackTrace(err, applicationerror.ResponseParseError, logger.LBFT040003, string(bytesArray))
 		return entity.KeyServerResponse{}, applicationerror.ResponseParseError
 	}
 

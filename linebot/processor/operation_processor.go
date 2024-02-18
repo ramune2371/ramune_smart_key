@@ -155,12 +155,12 @@ func (opProcessor *OperationProcessor) mergeEvents(operations []*entity.Operatio
 			} else {
 				// 非初操作かつ、Check以外の場合、前回の操作をMergedとして記録、かつ、操作を上書き
 				opProcessor.ohDao.UpdateOperationHistoryByOperationId(before.OperationId, entity.Merged)
-				record := opProcessor.ohDao.InsertOperationHistory(op.UserId, op.Operation, entity.Operating)
+				record, _ := opProcessor.ohDao.InsertOperationHistory(op.UserId, op.Operation, entity.Operating)
 				op.OperationId = *record.OperationId
 				userOperations[op.UserId] = *op
 			}
 		} else {
-			record := opProcessor.ohDao.InsertOperationHistory(op.UserId, op.Operation, entity.Operating)
+			record, _ := opProcessor.ohDao.InsertOperationHistory(op.UserId, op.Operation, entity.Operating)
 			op.OperationId = *record.OperationId
 			userOperations[op.UserId] = *op
 		}

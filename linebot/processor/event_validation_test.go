@@ -222,9 +222,9 @@ func TestVerifyUser(t *testing.T) {
 
 	mockEncryptor := mock_security.NewMockEncryptor(ctrl)
 	mockUserInfoDao := mock_user_info.NewMockUserInfoDao(ctrl)
-	mockUserInfoDao.EXPECT().GetUserByLineId("valid_user").Return(&ValidUser)
-	mockUserInfoDao.EXPECT().GetUserByLineId("invalid_user").Return(&InvalidUser)
-	mockUserInfoDao.EXPECT().GetUserByLineId("null_user").Return(nil)
+	mockUserInfoDao.EXPECT().GetUserByLineId("valid_user").Return(&ValidUser, nil)
+	mockUserInfoDao.EXPECT().GetUserByLineId("invalid_user").Return(&InvalidUser, nil)
+	mockUserInfoDao.EXPECT().GetUserByLineId("null_user").Return(nil, nil)
 
 	validator := NewEventValidatorImpl(mockUserInfoDao, mockEncryptor)
 
@@ -368,8 +368,8 @@ func TestValidateEvent(t *testing.T) {
 	invalidUser := entity.UserInfo{UserUuid: "invalid-uuid", LineId: "invalid", UserName: "invalid user", LastAccess: nil, Active: false}
 
 	mockUserInfoDao := mock_user_info.NewMockUserInfoDao(ctrl)
-	mockUserInfoDao.EXPECT().GetUserByLineId("valid").Return(&validUser).AnyTimes()
-	mockUserInfoDao.EXPECT().GetUserByLineId("invalid").Return(&invalidUser).AnyTimes()
+	mockUserInfoDao.EXPECT().GetUserByLineId("valid").Return(&validUser, nil).AnyTimes()
+	mockUserInfoDao.EXPECT().GetUserByLineId("invalid").Return(&invalidUser, nil).AnyTimes()
 	mockEncryptor := mock_security.NewMockEncryptor(ctrl)
 	mockEncryptor.EXPECT().SaltHash(gomock.Any()).DoAndReturn(func(value string) string { return value }).AnyTimes()
 	validator := NewEventValidatorImpl(mockUserInfoDao, mockEncryptor)

@@ -2,10 +2,12 @@ package server
 
 import (
 	"errors"
+	"linebot/applicationerror"
 	"linebot/controller"
 	"linebot/logger"
 	"linebot/middle"
 	"net/http"
+	"os"
 	"sync"
 
 	"github.com/labstack/echo-contrib/echoprometheus"
@@ -48,9 +50,9 @@ func initAppServer(sg *sync.WaitGroup) {
 	appServer.Use(echoprometheus.NewMiddleware("linebot"))
 	appServer.POST("/", controller.HandleLineAPIRequest)
 	if err := appServer.Start(server_port); err != nil {
-		logger.FatalWithStackTrace(err, logger.LBFT909999)
+		logger.FatalWithStackTrace(err, applicationerror.SystemError, logger.LBFT909999)
 		sg.Done()
-		panic(err)
+		os.Exit(1)
 	}
 	sg.Done()
 }
@@ -61,9 +63,9 @@ func initMetricsServer(sg *sync.WaitGroup) {
 	metricsServer.HidePort = true
 	metricsServer.GET("/metrics", echoprometheus.NewHandler())
 	if err := metricsServer.Start(metrics_port); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		logger.FatalWithStackTrace(err, logger.LBFT909999)
+		logger.FatalWithStackTrace(err, applicationerror.SystemError, logger.LBFT909999)
 		sg.Done()
-		panic(err)
+		os.Exit(1)
 	}
 	sg.Done()
 }

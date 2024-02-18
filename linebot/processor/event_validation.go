@@ -70,7 +70,7 @@ func (eventValidation EventValidatorImpl) verifyMessageText(text string) bool {
 // Userが有効かを検証
 func (eventValidation EventValidatorImpl) verifyUser(userId string) bool {
 
-	user := eventValidation.userInfoDao.GetUserByLineId(userId)
+	user, _ := eventValidation.userInfoDao.GetUserByLineId(userId)
 	if user == nil {
 		return false
 	}
