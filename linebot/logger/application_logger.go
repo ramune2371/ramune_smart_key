@@ -57,6 +57,8 @@ var (
 	LBIF900001 = applicationLog{Id: "LBIF900001", MsgFormat: "Server Initialize Completed : app port=%s, metrics port=%s"}
 	// 暗号化処理に失敗
 	LBFT900001 = applicationLog{Id: "LBFT900001", MsgFormat: "暗号化処理に失敗しました。"}
+	// 環境変数の読み込みに失敗(環境変数名)
+	LBFT900002 = applicationLog{Id: "LBFT900002", MsgFormat: "環境変数の読み込みに失敗しました。%s"}
 	// システム障害が発生。
 	LBFT909999 = applicationLog{Id: "LBFT909999", MsgFormat: "システム障害が発生しました。"}
 )

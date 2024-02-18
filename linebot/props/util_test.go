@@ -84,15 +84,16 @@ func TestMain(t *testing.T) {
 			})
 		}
 
-		t.Run("key server panic", func(t *testing.T) {
-			t.Setenv("KEY_SERVER_URL", "fizz")
-			defer func() {
-				err := recover()
-				expect := "URL Environment is invalid: loadUrl"
-				if err != expect {
-					t.Errorf(testutil.STRUCT_TEST_MSG_FMT, "key server url load panic", expect, err)
+		t.Run("load key server url exit test", func(t *testing.T) {
+			defaultOsExit := props.OsExit
+			defer func() { props.OsExit = defaultOsExit }()
+
+			props.OsExit = func(value int) {
+				if value != 1 {
+					t.Errorf(testutil.INT_TEST_MSG_FMT, "failed key server url load exit status", 1, value)
 				}
-			}()
+			}
+			t.Setenv("KEY_SERVER_URL", "fizz")
 			props.LoadEnv()
 		})
 	})
