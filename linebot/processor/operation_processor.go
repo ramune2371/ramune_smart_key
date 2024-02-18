@@ -203,7 +203,7 @@ args: target 返信対象のentity.Operationのポインタ配列
 */
 func (opProcessor *OperationProcessor) replyToNotValidUsers(target []*entity.Operation) {
 	for _, op := range target {
-		logger.Info(&logger.LBIF020001, op.UserId)
+		logger.Info(logger.LBIF020001, op.UserId)
 		msg := fmt.Sprintf("無効なユーザだよ。↓の文字列を管理者に送って。\n「%s」", op.UserId)
 		opProcessor.lTransfer.ReplyToToken(msg, op.ReplyToken)
 	}
@@ -270,10 +270,10 @@ func (opProcessor *OperationProcessor) handleKeyServerError(ops map[string]entit
 	errorResponse := "エラーが起きてる！\nこのメッセージ見たらなるちゃんに「鍵のエラーハンドリングバグってるよ!」と連絡！"
 	for _, o := range ops {
 		switch err {
-		case &applicationerror.ConnectionError:
+		case applicationerror.ConnectionError:
 			go opProcessor.ohDao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerConnectionError)
 			errorResponse = "＜＜鍵サーバとの通信に失敗した＞＞\nなるちゃんに連絡して!"
-		case &applicationerror.ResponseParseError:
+		case applicationerror.ResponseParseError:
 			go opProcessor.ohDao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerResponseError)
 			errorResponse = fmt.Sprintf("！！！何が起きたか分からない！！！\nなるちゃんに↓これと一緒に至急連絡\n%s", applicationerror.ResponseParseError.Code)
 		default:

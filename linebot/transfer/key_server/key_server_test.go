@@ -106,7 +106,7 @@ func TestKeyServerTransferImpl_Request(t *testing.T) {
 		if err == nil {
 			t.Error("Expected error, got nil")
 		}
-		if !errors.Is(err, &applicationerror.ConnectionError) {
+		if !errors.Is(err, applicationerror.ConnectionError) {
 			t.Errorf("Expected connection error, got: %v", err)
 		}
 		if response != (entity.KeyServerResponse{}) {
@@ -126,7 +126,7 @@ func TestKeyServerTransferImpl_Request(t *testing.T) {
 		if err == nil {
 			t.Error("Expected error, got nil")
 		}
-		if !errors.Is(err, &applicationerror.ResponseParseError) {
+		if !errors.Is(err, applicationerror.ResponseParseError) {
 			t.Errorf("Expected ResponseParse error, got: %v", err)
 		}
 		if response != (entity.KeyServerResponse{}) {
@@ -154,7 +154,7 @@ func TestKeyServerTransferImpl_Request(t *testing.T) {
 		if err == nil {
 			t.Error("Expected error, got nil")
 		}
-		if !errors.Is(err, &applicationerror.ResponseParseError) {
+		if !errors.Is(err, applicationerror.ResponseParseError) {
 			t.Errorf("Expected connection error, got: %v", err)
 		}
 		if response != (entity.KeyServerResponse{}) {

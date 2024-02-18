@@ -22,7 +22,7 @@ func (uiDao UserInfoDaoImpl) GetUserByLineId(lineId string) *entity.UserInfo {
 
 	res := uiDao.Database.ReadOnly(entity.UserInfoTable, func(tx *gorm.DB) error {
 		if err := tx.Where("line_id = ?", lineId).Find(&ret).Error; err != nil {
-			logger.ErrorWithStackTrace(err, &logger.LBER030001)
+			logger.ErrorWithStackTrace(err, logger.LBER030001)
 			return err
 		}
 		return nil
@@ -43,7 +43,7 @@ func (uiDao UserInfoDaoImpl) UpdateUserLastAccess(lineId string) bool {
 
 	res := uiDao.Database.ReadWrite(entity.UserInfoTable, func(tx *gorm.DB) error {
 		if err := tx.Where("line_id = ?", lineId).Update("last_access", time.Now()).Error; err != nil {
-			logger.ErrorWithStackTrace(err, &logger.LBER030002)
+			logger.ErrorWithStackTrace(err, logger.LBER030002)
 			return err
 		}
 		return nil
@@ -65,7 +65,7 @@ func (uiDao UserInfoDaoImpl) UpsertInvalidUser(lineId string) bool {
 	var ret *entity.UserInfo
 	res := uiDao.Database.ReadWrite(entity.UserInfoTable, func(tx *gorm.DB) error {
 		if err := tx.Where("line_id = ?", lineId).Find(&ret).Error; err != nil {
-			logger.ErrorWithStackTrace(err, &logger.LBER030001)
+			logger.ErrorWithStackTrace(err, logger.LBER030001)
 			return err
 		}
 		if ret.UserUuid == "" {
@@ -77,7 +77,7 @@ func (uiDao UserInfoDaoImpl) UpsertInvalidUser(lineId string) bool {
 		}
 		ret.Active = false
 		if err := tx.Where("line_id = ?", lineId).Save(&ret).Error; err != nil {
-			logger.ErrorWithStackTrace(err, &logger.LBER030002)
+			logger.ErrorWithStackTrace(err, logger.LBER030002)
 			return err
 		}
 		return nil

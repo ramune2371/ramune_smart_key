@@ -20,14 +20,14 @@ RequestのHTTPヘッダーにあるLINEの署名を検証。
 */
 func VerifyLineSignature(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		logger.Info(&logger.LBIF010001)
+		logger.Info(logger.LBIF010001)
 
-		// Reqeustの読み込み
+		// Requestの読み込み
 		req := c.Request()
 		body, err := io.ReadAll(req.Body)
 		if err != nil {
 			err = errors.Wrap(err, "Failed read webhook body")
-			logger.WarnWithStackTrace(err, &logger.LBWR010001)
+			logger.WarnWithStackTrace(err, logger.LBWR010001)
 			return c.NoContent(http.StatusInternalServerError)
 		}
 
@@ -35,19 +35,19 @@ func VerifyLineSignature(next echo.HandlerFunc) echo.HandlerFunc {
 		decoded, err := base64.StdEncoding.DecodeString(req.Header.Get("x-line-signature"))
 		if err != nil {
 			err = errors.Wrap(err, "Failed base64 decode webhook header")
-			logger.WarnWithStackTrace(err, &logger.LBWR010001)
+			logger.WarnWithStackTrace(err, logger.LBWR010001)
 			return c.NoContent(http.StatusInternalServerError)
 		}
 		hash := hmac.New(sha256.New, []byte(props.ChannelSecret))
 		hash.Write(body)
 		if !hmac.Equal(decoded, hash.Sum(nil)) {
-			logger.Warn(&logger.LBWR010002)
+			logger.Warn(logger.LBWR010002)
 			return c.NoContent(http.StatusBadRequest)
 		}
 
 		// 後続でRequestBodyを処理するために詰め直し
 		c.Request().Body = io.NopCloser(bytes.NewBuffer(body))
-		logger.Info(&logger.LBIF010002)
+		logger.Info(logger.LBIF010002)
 		return next(c)
 	}
 }

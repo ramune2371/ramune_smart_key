@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"linebot/dao/database"
 	"linebot/dao/operation_history"
 	"linebot/dao/user_info"
@@ -28,7 +27,7 @@ func NewLineEventController() *LineEventController {
 	lineBot, err := linebot.New(props.ChannelSecret, props.ChannelToken)
 
 	if err != nil {
-		logger.FatalWithStackTrace(err, &logger.LBFT040004)
+		logger.FatalWithStackTrace(err, logger.LBFT040004)
 		panic(err)
 	}
 	lTransfer := line.NewLineTransfer(lineBot)
@@ -64,7 +63,6 @@ func NewLineEventController() *LineEventController {
 func (lec *LineEventController) HandleLineAPIRequest(c echo.Context) error {
 	events, err := linebot.ParseRequest(props.ChannelSecret, c.Request())
 	if err != nil {
-		fmt.Printf("koko↑\n\terr:%+v\n", err)
 		return c.NoContent(http.StatusBadRequest)
 	}
 	lec.opProcessor.HandleEvents(events)

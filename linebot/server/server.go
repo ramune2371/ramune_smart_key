@@ -32,7 +32,7 @@ func StartServer() {
 	// setup & run app server
 	serverGroup.Add(1)
 	go initAppServer(serverGroup)
-	logger.Info(&logger.LBIF900001, server_port, metrics_port)
+	logger.Info(logger.LBIF900001, server_port, metrics_port)
 	serverGroup.Wait()
 }
 
@@ -48,7 +48,7 @@ func initAppServer(sg *sync.WaitGroup) {
 	appServer.Use(echoprometheus.NewMiddleware("linebot"))
 	appServer.POST("/", controller.HandleLineAPIRequest)
 	if err := appServer.Start(server_port); err != nil {
-		logger.FatalWithStackTrace(err, &logger.LBFT909999)
+		logger.FatalWithStackTrace(err, logger.LBFT909999)
 		sg.Done()
 		panic(err)
 	}
@@ -61,7 +61,7 @@ func initMetricsServer(sg *sync.WaitGroup) {
 	metricsServer.HidePort = true
 	metricsServer.GET("/metrics", echoprometheus.NewHandler())
 	if err := metricsServer.Start(metrics_port); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		logger.FatalWithStackTrace(err, &logger.LBFT909999)
+		logger.FatalWithStackTrace(err, logger.LBFT909999)
 		sg.Done()
 		panic(err)
 	}

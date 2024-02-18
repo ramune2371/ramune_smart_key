@@ -266,8 +266,8 @@ func TestOperationProcessor_HandleEvents(t *testing.T) {
 
 	t.Run("異常系(鍵サーバとの通信異常系)", func(t *testing.T) {
 		errors := []*applicationerror.ApplicationError{
-			&applicationerror.ConnectionError,
-			&applicationerror.ResponseParseError,
+			applicationerror.ConnectionError,
+			applicationerror.ResponseParseError,
 		}
 		expectResTexts := []string{
 			"＜＜鍵サーバとの通信に失敗した＞＞\nなるちゃんに連絡して!",
