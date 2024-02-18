@@ -59,6 +59,8 @@ func createResponse(keyStatus, operationStatus string) string {
 func TestKeyServerTransferImpl_Request(t *testing.T) {
 	t.Run("正常系", func(t *testing.T) {
 		// テスト用のHTTPサーバーを起動
+		oldKeyServerURL := props.KeyServerURL
+		defer func() { props.KeyServerURL = oldKeyServerURL }()
 		testServer := startTestServer(http.StatusOK, createResponse("True", "another"))
 		defer testServer.Close()
 
@@ -134,6 +136,8 @@ func TestKeyServerTransferImpl_Request(t *testing.T) {
 
 	t.Run("異常系(レスポンスが非json)", func(t *testing.T) {
 		// テスト用のHTTPサーバーを起動
+		oldKeyServerURL := props.KeyServerURL
+		defer func() { props.KeyServerURL = oldKeyServerURL }()
 		testServer := startTestServer(http.StatusOK, "not json")
 		defer testServer.Close()
 
@@ -161,6 +165,8 @@ func TestKeyServerTransferImpl_Request(t *testing.T) {
 
 func TestCheckKey(t *testing.T) {
 	client := URLCheckClient{test: t, expectPath: "/check"}
+	oldKeyServerURL := props.KeyServerURL
+	defer func() { props.KeyServerURL = oldKeyServerURL }()
 	props.KeyServerURL = "http://localhost:8282/"
 	kst := key_server.NewKeyServerTransferImpl(&client)
 	kst.CheckKey()
@@ -168,6 +174,8 @@ func TestCheckKey(t *testing.T) {
 
 func TestOpenKey(t *testing.T) {
 	client := URLCheckClient{test: t, expectPath: "/open"}
+	oldKeyServerURL := props.KeyServerURL
+	defer func() { props.KeyServerURL = oldKeyServerURL }()
 	props.KeyServerURL = "http://localhost:8282/"
 	kst := key_server.NewKeyServerTransferImpl(client)
 	kst.OpenKey()
@@ -175,6 +183,8 @@ func TestOpenKey(t *testing.T) {
 
 func TestCloseKey(t *testing.T) {
 	client := URLCheckClient{test: t, expectPath: "/close"}
+	oldKeyServerURL := props.KeyServerURL
+	defer func() { props.KeyServerURL = oldKeyServerURL }()
 	props.KeyServerURL = "http://localhost:8282/"
 	kst := key_server.NewKeyServerTransferImpl(client)
 	kst.CloseKey()
