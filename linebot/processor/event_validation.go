@@ -19,7 +19,7 @@ type EventValidatorImpl struct {
 	eventConverter EventConverter
 }
 
-func NewEventValidatorImpl(userInfoDao user_info.UserInfoDao, encryptor security.Encryptor) *EventValidatorImpl {
+func NewEventValidatorImpl(userInfoDao user_info.UserInfoDao, encryptor security.Encryptor) EventValidator {
 	ret := &EventValidatorImpl{
 		userInfoDao:    userInfoDao,
 		encryptor:      encryptor,

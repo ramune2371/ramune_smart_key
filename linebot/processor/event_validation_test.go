@@ -118,7 +118,7 @@ func TestIsTextMessage(t *testing.T) {
 
 	// テスト実行
 	for _, test := range tests {
-		ret := validator.isTextMessage(test.event)
+		ret := validator.(*EventValidatorImpl).isTextMessage(test.event)
 		if ret != test.expect {
 			t.Errorf(testutil.BOOL_TEST_MSG_FMT, test.description, test.expect, ret)
 		}
@@ -254,7 +254,7 @@ func TestVerifyUser(t *testing.T) {
 	// テスト実行
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			res := validator.verifyUser(test.userId)
+			res := validator.(*EventValidatorImpl).verifyUser(test.userId)
 			if res != test.expected {
 				t.Errorf(testutil.BOOL_TEST_MSG_FMT, test.description, test.expected, res)
 			}
@@ -346,7 +346,7 @@ func TestCheckMessage(t *testing.T) {
 
 	// テスト実行
 	for _, test := range tests {
-		rets := validator.checkMessage(test.target)
+		rets := validator.(*EventValidatorImpl).checkMessage(test.target)
 		// length check
 		if len(rets) != len(test.expect) {
 			t.Errorf("length check:"+testutil.INT_TEST_MSG_FMT, test.description, len(test.expect), len(rets))
