@@ -8,7 +8,7 @@ import (
 )
 
 type EventConverter interface {
-	ConvertEventToOperation(*linebot.Event) *entity.Operation
+	ConvertEventToEncryptedOperation(*linebot.Event) *entity.Operation
 }
 
 type EventConverterImpl struct {

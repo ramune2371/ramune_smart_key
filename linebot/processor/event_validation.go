@@ -14,8 +14,19 @@ type EventValidator interface {
 }
 
 type EventValidatorImpl struct {
-	UserInfoDao user_info.UserInfoDao
-	Encryptor   security.Encryptor
+	userInfoDao    user_info.UserInfoDao
+	encryptor      security.Encryptor
+	eventConverter EventConverter
+}
+
+func NewEventValidatorImpl(userInfoDao user_info.UserInfoDao, encryptor security.Encryptor) *EventValidatorImpl {
+	ret := &EventValidatorImpl{
+		userInfoDao:    userInfoDao,
+		encryptor:      encryptor,
+		eventConverter: EventConverterImpl{Encryptor: encryptor},
+	}
+
+	return ret
 }
 
 // WebHook Eventsの中身を検証
@@ -30,7 +41,7 @@ func (eventValidation EventValidatorImpl) ValidateEvent(events []*linebot.Event)
 		lineId := op.UserId
 		// (b-3)検証
 		if !eventValidation.verifyUser(lineId) {
-			logger.Debug(("not valid user"))
+			logger.Debug("not valid user")
 			notActiveUserOperation = append(notActiveUserOperation, op)
 			continue
 		}
@@ -45,9 +56,9 @@ func (eventValidation EventValidatorImpl) isTextMessage(e *linebot.Event) bool {
 	tm, ok := e.Message.(*linebot.TextMessage)
 	if !ok {
 		return false
-	} else {
-		return tm.Text != ""
 	}
+	return tm.Text != ""
+
 }
 
 // TextMessageの中身が許可されたものかを検証
@@ -59,7 +70,7 @@ func (eventValidation EventValidatorImpl) verifyMessageText(text string) bool {
 // Userが有効かを検証
 func (eventValidation EventValidatorImpl) verifyUser(userId string) bool {
 
-	user := eventValidation.UserInfoDao.GetUserByLineId(userId)
+	user := eventValidation.userInfoDao.GetUserByLineId(userId)
 	if user == nil {
 		return false
 	}
@@ -83,7 +94,7 @@ func (ev EventValidatorImpl) checkMessage(events []*linebot.Event) []*entity.Ope
 			continue
 		}
 
-		allOperation = append(allOperation, EventConverterImpl{ev.Encryptor}.ConvertEventToEncryptedOperation(e))
+		allOperation = append(allOperation, ev.eventConverter.ConvertEventToEncryptedOperation(e))
 	}
 
 	return allOperation

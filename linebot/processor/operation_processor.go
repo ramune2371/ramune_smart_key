@@ -67,7 +67,7 @@ linebot.Eventを処理
 args: events 処理対象のlinebot.Eventのポインタ配列
 */
 func (op *OperationProcessor) HandleEvents(events []*linebot.Event) {
-	validator := EventValidatorImpl{UserInfoDao: op.uiDao, Encryptor: op.encryptor}
+	validator := NewEventValidatorImpl(op.uiDao, op.encryptor)
 	validEvents, invalidEvents := validator.ValidateEvent(events)
 
 	if len(invalidEvents) != 0 {

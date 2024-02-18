@@ -30,8 +30,9 @@ func TestIsTextMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	mockEncryptor := mock_security.NewMockEncryptor(ctrl)
 	mockUserInfoDao := mock_user_info.NewMockUserInfoDao(ctrl)
-	validator := EventValidatorImpl{UserInfoDao: mockUserInfoDao}
+	validator := NewEventValidatorImpl(mockUserInfoDao, mockEncryptor)
 
 	tests := []struct {
 		description string
@@ -127,7 +128,7 @@ func TestIsTextMessage(t *testing.T) {
 func TestVerifyMessageText(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockUserInfoDao := mock_user_info.NewMockUserInfoDao(ctrl)
-	validator := EventValidatorImpl{UserInfoDao: mockUserInfoDao}
+	validator := EventValidatorImpl{userInfoDao: mockUserInfoDao}
 
 	tests := []struct {
 		description string
@@ -219,14 +220,13 @@ func TestVerifyUser(t *testing.T) {
 	ValidUser := entity.UserInfo{UserUuid: "validUser", LineId: "valid_user", UserName: "ValidUser", LastAccess: &time, Active: true}
 	InvalidUser := entity.UserInfo{UserUuid: "invalidUser", LineId: "invalid_user", UserName: "ValidUser", LastAccess: &time, Active: false}
 
+	mockEncryptor := mock_security.NewMockEncryptor(ctrl)
 	mockUserInfoDao := mock_user_info.NewMockUserInfoDao(ctrl)
 	mockUserInfoDao.EXPECT().GetUserByLineId("valid_user").Return(&ValidUser)
 	mockUserInfoDao.EXPECT().GetUserByLineId("invalid_user").Return(&InvalidUser)
 	mockUserInfoDao.EXPECT().GetUserByLineId("null_user").Return(nil)
 
-	validator := EventValidatorImpl{
-		UserInfoDao: mockUserInfoDao,
-	}
+	validator := NewEventValidatorImpl(mockUserInfoDao, mockEncryptor)
 
 	// テストケースの定義
 	tests := []struct {
@@ -270,10 +270,10 @@ func TestCheckMessage(t *testing.T) {
 	mockEncryptor := mock_security.NewMockEncryptor(ctrl)
 	mockEncryptor.EXPECT().SaltHash(gomock.Any()).DoAndReturn(
 		func(value string) string {
-			return value
+			return value + "SaltHash"
 		},
 	).AnyTimes()
-	validator := EventValidatorImpl{UserInfoDao: mockUserInfoDao, Encryptor: mockEncryptor}
+	validator := NewEventValidatorImpl(mockUserInfoDao, mockEncryptor)
 
 	openEvent := createTextMessage("open", "openUser", "openToken")
 	openEvent2 := createTextMessage("open", "openUser2", "openToken2")
@@ -283,10 +283,10 @@ func TestCheckMessage(t *testing.T) {
 	invalidTextEvent := createTextMessage("fizz", "emptyUser", "emptyToken")
 	invalidEvent := &linebot.Event{}
 
-	openOperation := &entity.Operation{OperationId: -1, UserId: "openUser", Operation: entity.Open, ReplyToken: "openToken"}
-	openOperation2 := &entity.Operation{OperationId: -1, UserId: "openUser2", Operation: entity.Open, ReplyToken: "openToken2"}
-	closeOperation := &entity.Operation{OperationId: -1, UserId: "closeUser", Operation: entity.Close, ReplyToken: "closeToken"}
-	checkOperation := &entity.Operation{OperationId: -1, UserId: "checkUser", Operation: entity.Check, ReplyToken: "checkToken"}
+	openOperation := &entity.Operation{OperationId: -1, UserId: "openUserSaltHash", Operation: entity.Open, ReplyToken: "openToken"}
+	openOperation2 := &entity.Operation{OperationId: -1, UserId: "openUser2SaltHash", Operation: entity.Open, ReplyToken: "openToken2"}
+	closeOperation := &entity.Operation{OperationId: -1, UserId: "closeUserSaltHash", Operation: entity.Close, ReplyToken: "closeToken"}
+	checkOperation := &entity.Operation{OperationId: -1, UserId: "checkUserSaltHash", Operation: entity.Check, ReplyToken: "checkToken"}
 
 	tests := []struct {
 		description string
@@ -372,7 +372,7 @@ func TestValidateEvent(t *testing.T) {
 	mockUserInfoDao.EXPECT().GetUserByLineId("invalid").Return(&invalidUser).AnyTimes()
 	mockEncryptor := mock_security.NewMockEncryptor(ctrl)
 	mockEncryptor.EXPECT().SaltHash(gomock.Any()).DoAndReturn(func(value string) string { return value }).AnyTimes()
-	validator := EventValidatorImpl{UserInfoDao: mockUserInfoDao, Encryptor: mockEncryptor}
+	validator := NewEventValidatorImpl(mockUserInfoDao, mockEncryptor)
 
 	openValidUserEvent := createTextMessage("open", "valid", "openValidToken")
 	closeValidUserEvent := createTextMessage("close", "valid", "closeValidToken")
