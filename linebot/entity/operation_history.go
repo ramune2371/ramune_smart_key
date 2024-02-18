@@ -8,6 +8,7 @@ const (
 	OperatingTypeError       OperationErrorCode = "302"
 	KeyServerConnectionError OperationErrorCode = "303"
 	InOperatingError         OperationErrorCode = "304"
+	KeyServerResponseError   OperationErrorCode = "305"
 )
 
 type OperationHistory struct {

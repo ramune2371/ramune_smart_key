@@ -15,8 +15,8 @@ var (
 func loadSalt() {
 	Salt = readEnv(SALT_ENV, "test")
 	signatureCheckStr := readEnv(SIGNATURE_CHECK, "true")
-	isCheck, ok := strconv.ParseBool(signatureCheckStr)
-	if ok != nil {
+	isCheck, err := strconv.ParseBool(signatureCheckStr)
+	if err != nil {
 		IsSignatureCheck = true
 	} else {
 		IsSignatureCheck = isCheck

@@ -20,12 +20,12 @@ import (
 
 type MockEncryptor struct{}
 
-func (MockEncryptor) SaltHash(value string) string { return value }
+func (MockEncryptor) SaltHash(value string) string { return value + "SaltHash" }
 
 func getFailMockedKeyServerTransfer(t *testing.T, ctrl *gomock.Controller) key_server.KeyServerTransfer {
 	// failMockedKeyServerTransfer
 	failFunc := func() {
-		t.Errorf("Not expected call!!")
+		t.Fatalf("Not expected call!!")
 	}
 	failMockedKeyServerTransfer := mock_key_server.NewMockKeyServerTransfer(ctrl)
 	failMockedKeyServerTransfer.EXPECT().CloseKey().DoAndReturn(failFunc).AnyTimes()
@@ -84,9 +84,9 @@ func getMockedUserInfoDao(t *testing.T, ctrl *gomock.Controller) user_info.UserI
 	for _, u := range userTypes {
 		for _, o := range operationTypes {
 			userName := u + o
-			mockedUserInfoDao.EXPECT().GetUserByLineId(userName).Return(&entity.UserInfo{
+			mockedUserInfoDao.EXPECT().GetUserByLineId(userName + "SaltHash").Return(&entity.UserInfo{
 				UserUuid:   "",
-				LineId:     userName,
+				LineId:     userName + "SaltHash",
 				UserName:   userName,
 				LastAccess: nil,
 				Active:     u == "valid",
@@ -94,10 +94,10 @@ func getMockedUserInfoDao(t *testing.T, ctrl *gomock.Controller) user_info.UserI
 		}
 	}
 	for _, o := range operationTypes {
-		mockedUserInfoDao.EXPECT().UpsertInvalidUser("invalid" + o).Return(true).AnyTimes()
+		mockedUserInfoDao.EXPECT().UpsertInvalidUser("invalid" + o + "SaltHash").Return(true).AnyTimes()
 	}
 	for _, o := range operationTypes {
-		mockedUserInfoDao.EXPECT().UpdateUserLastAccess("valid" + o).Return(true).AnyTimes()
+		mockedUserInfoDao.EXPECT().UpdateUserLastAccess("valid" + o + "SaltHash").Return(true).AnyTimes()
 	}
 	return mockedUserInfoDao
 }
@@ -107,7 +107,7 @@ func getMockOperationHistoryDao(t *testing.T, ctrl *gomock.Controller) operation
 	id := -1
 	mockedOperationHistoryDao.EXPECT().InsertOperationHistory(gomock.Any(), gomock.Any(), gomock.Any()).Return(&entity.OperationHistory{
 		OperationId:     &id,
-		LineId:          "valid",
+		LineId:          "validSaltHash",
 		OperationType:   entity.Open,
 		OperationResult: entity.Operating,
 		OperationTime:   nil,
@@ -178,7 +178,7 @@ func TestOperationProcessor_HandleEvents(t *testing.T) {
 				// line transfer のmock化
 				assert := func(resText, replyToken string) error {
 					if replyToken == "invalidToken" {
-						expectText := "無効なユーザだよ。↓の文字列を管理者に送って。\n「invalid" + ot + "」"
+						expectText := "無効なユーザだよ。↓の文字列を管理者に送って。\n「invalid" + ot + "SaltHash」"
 						if resText != expectText {
 							t.Errorf(testutil.STRING_TEST_MSG_FMT, "", expectText, resText)
 						}
@@ -240,7 +240,7 @@ func TestOperationProcessor_HandleEvents(t *testing.T) {
 
 		t.Run("無効ユーザのみからのリクエスト", func(t *testing.T) {
 			for _, ot := range operationTypes {
-				expectResTexts := "無効なユーザだよ。↓の文字列を管理者に送って。\n「invalid" + ot + "」"
+				expectResTexts := "無効なユーザだよ。↓の文字列を管理者に送って。\n「invalid" + ot + "SaltHash」"
 				targetEvents := []*linebot.Event{
 					{Message: linebot.NewTextMessage(ot), Source: &linebot.EventSource{UserID: "invalid" + ot}, ReplyToken: "invalidToken"},
 				}

@@ -272,7 +272,7 @@ func (opProcessor *OperationProcessor) handleKeyServerError(ops map[string]entit
 			go opProcessor.ohDao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerConnectionError)
 			errorResponse = "＜＜鍵サーバとの通信に失敗した＞＞\nなるちゃんに連絡して!"
 		case &applicationerror.ResponseParseError:
-			go opProcessor.ohDao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerConnectionError)
+			go opProcessor.ohDao.UpdateOperationHistoryWithErrorByOperationId(o.OperationId, entity.KeyServerResponseError)
 			errorResponse = fmt.Sprintf("！！！何が起きたか分からない！！！\nなるちゃんに↓これと一緒に至急連絡\n%s", applicationerror.ResponseParseError.Code)
 		}
 		opProcessor.lTransfer.ReplyToToken(errorResponse, o.ReplyToken)
