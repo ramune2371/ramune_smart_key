@@ -36,19 +36,8 @@ func getFailMockedKeyServerTransfer(t *testing.T, ctrl *gomock.Controller) key_s
 }
 
 func createMockKeyServerTransfer(operationType string, t *testing.T, ctrl *gomock.Controller, res entity.KeyServerResponse, err *applicationerror.ApplicationError) key_server.KeyServerTransfer {
-	// key server transfer のmock化
-	mockedKeyServerTransfer := mock_key_server.NewMockKeyServerTransfer(ctrl)
-	mockedKeyServerTransfer.EXPECT().CloseKey().DoAndReturn(func() (entity.KeyServerResponse, error) {
-		if operationType != "close" {
-			t.Fatalf("Not expected Called")
-		}
-		if err == nil {
-			return res, nil
-		}
-		return res, err
-	}).AnyTimes()
-	mockedKeyServerTransfer.EXPECT().OpenKey().DoAndReturn(func() (entity.KeyServerResponse, error) {
-		if operationType != "open" {
+	helperFunc := func(expectOp string) (entity.KeyServerResponse, error) {
+		if operationType != expectOp {
 			t.Fatalf("Not expected Called")
 		}
 
@@ -56,15 +45,17 @@ func createMockKeyServerTransfer(operationType string, t *testing.T, ctrl *gomoc
 			return res, nil
 		}
 		return res, err
+	}
+	// key server transfer のmock化
+	mockedKeyServerTransfer := mock_key_server.NewMockKeyServerTransfer(ctrl)
+	mockedKeyServerTransfer.EXPECT().CloseKey().DoAndReturn(func() (entity.KeyServerResponse, error) {
+		return helperFunc("close")
+	}).AnyTimes()
+	mockedKeyServerTransfer.EXPECT().OpenKey().DoAndReturn(func() (entity.KeyServerResponse, error) {
+		return helperFunc("open")
 	}).AnyTimes()
 	mockedKeyServerTransfer.EXPECT().CheckKey().DoAndReturn(func() (entity.KeyServerResponse, error) {
-		if operationType != "check" {
-			t.Fatalf("Not expected Called")
-		}
-		if err == nil {
-			return res, nil
-		}
-		return res, err
+		return helperFunc("check")
 	}).AnyTimes()
 
 	return mockedKeyServerTransfer
