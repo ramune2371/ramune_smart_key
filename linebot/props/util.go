@@ -14,4 +14,5 @@ func readEnv(envName, defaultValue string) string {
 func LoadEnv() {
 	loadLineProps()
 	loadSalt()
+	loadKeyServerUrl()
 }

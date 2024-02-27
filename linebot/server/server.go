@@ -2,11 +2,12 @@ package server
 
 import (
 	"errors"
+	"linebot/applicationerror"
+	"linebot/controller"
 	"linebot/logger"
 	"linebot/middle"
-	"linebot/processor"
-	"linebot/transfer"
 	"net/http"
+	"os"
 	"sync"
 
 	"github.com/labstack/echo-contrib/echoprometheus"
@@ -33,32 +34,25 @@ func StartServer() {
 	// setup & run app server
 	serverGroup.Add(1)
 	go initAppServer(serverGroup)
-	logger.Info(&logger.LBIF900001, server_port, metrics_port)
+	logger.Info(logger.LBIF900001, server_port, metrics_port)
 	serverGroup.Wait()
 }
 
-func handleLineAPIRequest(c echo.Context) error {
-	events, err := transfer.ParseLineRequest(c.Request())
-	if err != nil {
-		return c.NoContent(http.StatusBadRequest)
-	}
-	processor.HandleEvents(events)
-
-	return c.String(http.StatusOK, "")
-}
-
 func initAppServer(sg *sync.WaitGroup) {
+
+	controller := controller.NewLineEventController()
+
 	appServer := echo.New()
 	appServer.HideBanner = true
 	appServer.HidePort = true
 	appServer.Use(requestLog)
 	appServer.Use(middle.VerifyLineSignature)
 	appServer.Use(echoprometheus.NewMiddleware("linebot"))
-	appServer.POST("/", handleLineAPIRequest)
+	appServer.POST("/", controller.HandleLineAPIRequest)
 	if err := appServer.Start(server_port); err != nil {
-		logger.FatalWithStackTrace(err, &logger.LBFT909999)
+		logger.FatalWithStackTrace(err, applicationerror.SystemError, logger.LBFT909999)
 		sg.Done()
-		panic(err)
+		os.Exit(1)
 	}
 	sg.Done()
 }
@@ -69,9 +63,9 @@ func initMetricsServer(sg *sync.WaitGroup) {
 	metricsServer.HidePort = true
 	metricsServer.GET("/metrics", echoprometheus.NewHandler())
 	if err := metricsServer.Start(metrics_port); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		logger.FatalWithStackTrace(err, &logger.LBFT909999)
+		logger.FatalWithStackTrace(err, applicationerror.SystemError, logger.LBFT909999)
 		sg.Done()
-		panic(err)
+		os.Exit(1)
 	}
 	sg.Done()
 }
